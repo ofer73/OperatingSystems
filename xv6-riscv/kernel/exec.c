@@ -25,7 +25,8 @@ exec(char *path, char **argv)
 
   if((ip = namei(path)) == 0){
     end_op();
-    return -1;
+    /////////////////////////////we changed the return value in this case from -1
+    return -2;
   }
   ilock(ip);
 

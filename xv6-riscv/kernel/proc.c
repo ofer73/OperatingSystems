@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "perf.h"
 
 struct cpu cpus[NCPU];
 
@@ -13,6 +14,11 @@ struct proc proc[NPROC];
 struct proc *initproc;
 
 int nextpid = 1;
+
+// Time counter for burst-time calculation
+struct spinlock runtime_lock;
+int current_runtime = 0;
+
 struct spinlock pid_lock;
 
 extern void forkret(void);
@@ -25,6 +31,9 @@ extern char trampoline[]; // trampoline.S
 // memory model when using p->parent.
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
+
+
+//
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -50,6 +59,8 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+  initlock(&runtime_lock,"runtime_lock");//ass3 task3
+
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->kstack = KSTACK((int) (p - proc));
@@ -140,6 +151,16 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+  // init time fields for performance examination 
+  p->ctime = ticks;
+  p->ttime = -1;
+  p->stime = 0;
+  p->retime = 0;
+  p->rutime = 0;
+  p->average_bursttime = QUANTUM * 100;
+
+  p->decay_factor = 5;
 
   return p;
 }
@@ -267,6 +288,19 @@ growproc(int n)
   return 0;
 }
 
+// Copies proc fields into perf struct 
+// Same as stati but for pref
+void
+perfi(struct proc *proc, struct perf *perf){
+  perf->ctime = proc->ctime;
+  perf->ttime = proc->ttime;
+  perf->stime = proc->stime;
+  perf->retime = proc->retime;
+  perf->rutime = proc->rutime;
+  perf->bursttime = proc->average_bursttime;
+}
+
+
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
 int
@@ -301,6 +335,11 @@ fork(void)
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
 
+  //added by amit the king:
+  np->tracemask = p->tracemask;
+  np->decay_factor = p->decay_factor;
+
+  //
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
@@ -370,6 +409,7 @@ exit(int status)
 
   p->xstate = status;
   p->state = ZOMBIE;
+  p->ttime = ticks; //update termination time
 
   release(&wait_lock);
 
@@ -453,6 +493,12 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+
+        // New runtime -> Init runtime counter with 0
+        acquire(&runtime_lock);
+        current_runtime = 0;
+        release(&runtime_lock);
+        
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
@@ -487,6 +533,7 @@ sched(void)
     panic("sched interruptible");
 
   intena = mycpu()->intena;
+  p->average_bursttime =  ALPHA * current_runtime + ((100-ALPHA) * p->average_bursttime) / 100;
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
 }
@@ -653,4 +700,114 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// Changes the Trace bit mask for proccess with input pid
+// Trace mask determines which system calls will be traced
+int
+trace(int mask, int pid){
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->pid == pid){
+      p->tracemask = mask;
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  return -1;
+}
+
+int
+wait_stat(uint64 stat_addr, uint64 perf_addr){// ass1 
+  struct proc *np;
+  int havekids, pid;
+  struct proc *p = myproc();
+  struct perf child_perf;
+  acquire(&wait_lock);
+  
+  for(;;){
+    // Scan through table looking for exited children.
+    havekids = 0;
+    for(np = proc; np < &proc[NPROC]; np++){
+      if(np->parent == p){
+        // make sure the child isn't still in exit() or swtch().
+        acquire(&np->lock);
+
+        havekids = 1;
+        if(np->state == ZOMBIE){ 
+          // Found one.
+          pid = np->pid;
+          perfi(np, &child_perf);
+          if(stat_addr != 0 && perf_addr != 0 && 
+            ((copyout(p->pagetable, stat_addr, (char *)&np->xstate,sizeof(np->xstate)) < 0) ||
+            (copyout(p->pagetable, perf_addr, (char *)&child_perf, sizeof(child_perf)) < 0))){
+            release(&np->lock);
+            release(&wait_lock);
+            return -1;
+          }
+          freeproc(np);
+          release(&np->lock);
+          release(&wait_lock);
+          return pid;
+        }
+        release(&np->lock);
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || p->killed){
+      release(&wait_lock);
+      return -1;
+    }
+    
+    // Wait for a child to exit.
+    sleep(p, &wait_lock);  //DOC: wait-sleep
+  }
+
+}
+
+void
+update_times(){
+    struct proc *np;
+    acquire(&runtime_lock);
+    current_runtime++;
+    release(&runtime_lock);
+
+    for(np = proc; np < &proc[NPROC]; np++){
+      acquire(&np->lock);
+      switch (np->state)
+      {
+      case SLEEPING:
+        np->stime++;
+        break;
+      case RUNNABLE:
+        np->retime++;
+        break;
+      case RUNNING:
+        np->rutime++;
+        break;
+      default:
+        break;
+      }
+    release(&np->lock);
+    //TODO (ofer) update burst time 
+    } 
+}
+
+int
+set_priority(int priority){
+  struct proc *p = myproc();   
+  int priority_to_decay[5] = {1,3,5,7,25};
+
+  if(priority < 1 || priority > 5)
+    return -1;
+
+  acquire(&p->lock);
+  p->decay_factor=priority_to_decay[priority-1];
+  release(&p->lock); 
+
+  return 0;
 }

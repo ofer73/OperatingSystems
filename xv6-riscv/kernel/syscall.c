@@ -104,6 +104,11 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_wait(void);
 extern uint64 sys_write(void);
 extern uint64 sys_uptime(void);
+extern uint64 sys_trace(void);
+extern uint64 sys_wait_stat(void);
+extern uint64 sys_set_priority(void);
+
+
 
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -127,20 +132,77 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_trace]   sys_trace,
+[SYS_wait_stat] sys_wait_stat,
+[SYS_set_priority] sys_set_priority,
 };
+
+static char* (syscallnames[]) = {
+[SYS_fork]    "fork",
+[SYS_exit]    "exit",
+[SYS_wait]    "wait",
+[SYS_pipe]    "pipe",
+[SYS_read]    "read",
+[SYS_kill]    "kill",
+[SYS_exec]    "exec",
+[SYS_fstat]   "fstat",
+[SYS_chdir]   "chdir",
+[SYS_dup]     "dup",
+[SYS_getpid]  "getpid",
+[SYS_sbrk]    "sbrk",
+[SYS_sleep]   "sleep",
+[SYS_uptime]  "uptime",
+[SYS_open]    "open",
+[SYS_write]   "write",
+[SYS_mknod]   "mknod",
+[SYS_unlink]  "unlink",
+[SYS_link]    "link",
+[SYS_mkdir]   "mkdir",
+[SYS_close]   "close",
+[SYS_trace]   "trace",
+[SYS_wait_stat] "wait_stat",
+[SYS_set_priority] "set_priority",
+};
+
+
+int 
+printtrace(int syscallnum,int pid, uint64 ret, int arg){
+  if(syscallnum == SYS_fork){
+    printf("%d: syscall fork NULL -> %d\n",pid,ret);
+  }
+  else if(syscallnum == SYS_kill || syscallnum == SYS_sbrk){  
+    printf("%d: syscall %s %d -> %d\n",pid,syscallnames[syscallnum], arg, ret);
+  }
+  else{
+    printf("%d: syscall %s -> %d\n",pid,syscallnames[syscallnum],ret);
+  }
+  return 0;   
+}
+
 
 void
 syscall(void)
 {
   int num;
   struct proc *p = myproc();
+  int tracemask = p->tracemask;
 
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+    int arg;
+    argint(0, &arg);
+
     p->trapframe->a0 = syscalls[num]();
+
+    if(tracemask & (1<<num)){
+      printtrace(num,p->pid,p->trapframe->a0,arg);
+    }
+    
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);
     p->trapframe->a0 = -1;
   }
 }
+
+

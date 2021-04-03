@@ -150,7 +150,8 @@ kerneltrap()
   }
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+  //Will yield only if it past QUANTUM ticks since the start of current session- changed by us
+  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING && current_runtime >= QUANTUM)
     yield();
 
   // the yield() may have caused some traps to occur,
@@ -164,6 +165,7 @@ clockintr()
 {
   acquire(&tickslock);
   ticks++;
+  update_times();
   wakeup(&ticks);
   release(&tickslock);
 }

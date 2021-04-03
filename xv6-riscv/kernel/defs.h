@@ -8,6 +8,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct perf;
 
 // bio.c
 void            binit(void);
@@ -105,6 +106,11 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+int             trace(int mask, int pid);                       //ass1 task2
+int             wait_stat(uint64 stat, uint64 pref);            //ass1 task3
+void            perfi(struct proc *proc, struct perf *perf);    //ass1 task3
+void            update_times();                                 //ass1 task3
+int             set_priority(int priority);                     //ass1 task4
 
 // swtch.S
 void            swtch(struct context*, struct context*);

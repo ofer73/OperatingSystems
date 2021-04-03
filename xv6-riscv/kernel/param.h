@@ -11,3 +11,5 @@
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       1000  // size of file system in blocks
 #define MAXPATH      128   // maximum file path name
+#define QUANTUM      5     // num of clock ticks per quantum
+#define ALPHA        50   //  Var to determine relation between current burst time to prev one

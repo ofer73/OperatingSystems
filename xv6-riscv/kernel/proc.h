@@ -28,6 +28,8 @@ struct cpu {
 
 extern struct cpu cpus[NCPU];
 
+extern int current_runtime; 
+
 // per-process data for the trap handling code in trampoline.S.
 // sits in a page by itself just under the trampoline page in the
 // user page table. not specially mapped in the kernel page table.
@@ -92,6 +94,22 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
+  
+  //ass1 task2 field
+  int tracemask;               // Mask for which system calls to trace (for this process) 
+
+  // ass1 task3 fields
+  int ctime; // proc creation time
+  int ttime; // proc termination time
+  int stime; // total time in SLEEPING state
+  int retime; // total time in RUNNABLE state
+  int rutime; // total time in RUNNING state
+  int average_bursttime;  // approximate estimated burst time
+  //
+
+  // ass1 task4 fields
+  int decay_factor;           // priority of proccess (decay factor for CFS with decay Schedueling protocol)
+  //
 
   // proc_tree_lock must be held when using this:
   struct proc *parent;         // Parent process
