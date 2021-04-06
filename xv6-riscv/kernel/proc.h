@@ -110,6 +110,7 @@ struct proc {
   int decay_factor;           // priority of proccess (decay factor for CFS with decay Schedueling protocol)
   int current_runtime;        // count of clock ticks duration for the current runtime of proccess
   int runnable_since;         // last clock tick the prcoess became runnable in 
+  int chosen;                 // flag to indicate whether some scheduler chose this proc
 
 
   // proc_tree_lock must be held when using this:

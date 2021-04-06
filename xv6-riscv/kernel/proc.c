@@ -158,6 +158,7 @@ found:
   p->current_runtime = 0;
   p->decay_factor = 5;
   p->runnable_since = 0;
+  p->chosen = 0;
 
   return p;
 }
@@ -475,16 +476,16 @@ wait(uint64 addr)
 
 int
 FCFS_compare(struct proc *p1,struct proc *p2){
-  printf("inside FCFS comprator p2->runsince=%d\n",p2->runnable_since);
-  printf("\t\t p1->runsince=%d \n",p1->runnable_since);
-  printf("\t\t p1->runnable_since - p2->runnable_since %d\n",p1->runnable_since - p2->runnable_since);
+  // printf("inside FCFS comprator ");
+  // printf("inside FCFS comprator p2->runsince=%d\n",p2->runnable_since);
+  // printf("\t\t p1->runsince=%d \n",p1->runnable_since);
+  // printf("\t\t p1->runnable_since - p2->runnable_since %d\n",p1->runnable_since - p2->runnable_since);
   return p1->runnable_since - p2->runnable_since;
+  // return 0;
 }
 
 int
 SRT_compare(struct proc *p1,struct proc *p2){
-  int mypid=myproc()->pid;
-  printf("procces %d inside SRT comprator p2->brst=%d\n",mypid, p2->average_bursttime);
   // printf("\t\t p1->brst=%d \n",p1->average_bursttime);
   // printf("\t\t p1->brst - p2->v %d\n",p1->average_bursttime - p2->average_bursttime);
   return p1->average_bursttime - p2->average_bursttime;
@@ -563,93 +564,6 @@ default_policy(){
   }
 }
 
-// void 
-// FCFS_policy(){
-//   // non-preemptive policy
-//   is_preemptive=0;
-
-//   struct proc *p;
-//   struct cpu *c = mycpu();
-//   struct proc *first_come_p = 0;
-//   c->proc = 0;
-//   for(;;){
-//     // Avoid deadlock by ensuring that devices can interrupt.
-//     intr_on();
-
-//     for(p = proc; p < &proc[NPROC]; p++) {
-//       acquire(&p->lock);
-//       if(p->state == RUNNABLE) {
-//         if(first_come_p == 0 || first_come_p->runnable_since > p->runnable_since){
-//           first_come_p = p;
-//         }
-//       }
-//       release(&p->lock);
-//     }
-
-//     acquire(&first_come_p->lock);
-//     if(first_come_p->state = RUNNABLE){
-
-//       // Switch to chosen process.  It is the process's job
-//       // to release its lock and then reacquire it
-//       // before jumping back to us.
-//       first_come_p->state = RUNNING;
-//       c->proc = first_come_p;
-
-//       // New runtime -> Init runtime counter with 0
-//       first_come_p->current_runtime = 0;
-//       swtch(&c->context, &first_come_p->context);
-      
-//       // Process is done running for now.
-//       // It should have changed its p->state before coming back.
-//       c->proc=0;
-//       first_come_p->runnable_since=ticks+1;
-//     }
-//     release(&first_come_p);
-//   }
-// }
-
-// void 
-// SRT_policy(){
-//   struct proc *p;
-//   struct cpu *c = mycpu();
-//   struct proc *min_burst_time_p = 0;
-//   c->proc = 0;
-//   for(;;){
-//     // Avoid deadlock by ensuring that devices can interrupt.
-//     intr_on();
-
-//     for(p = proc; p < &proc[NPROC]; p++) {
-//       acquire(&p->lock);
-//       if(p->state == RUNNABLE) {
-//         if(min_burst_time_p == 0 || min_burst_time_p->average_bursttime > p->average_bursttime){
-//           min_burst_time_p = p;
-//         }
-//       }
-//       release(&p->lock);
-//     }
-
-//     acquire(&min_burst_time_p->lock);
-//     if(min_burst_time_p->state = RUNNABLE){
-
-//       // Switch to chosen process.  It is the process's job
-//       // to release its lock and then reacquire it
-//       // before jumping back to us.
-//       min_burst_time_p->state = RUNNING;
-//       c->proc = min_burst_time_p;
-
-//       // New runtime -> Init runtime counter with 0
-//       min_burst_time_p->current_runtime = 0;
-//       swtch(&c->context, &min_burst_time_p->context);
-      
-//       // Process is done running for now.
-//       // It should have changed its p->state before coming back.
-//       c->proc=0;
-//     }
-//     release(&min_burst_time_p);
-//   }
-// }
-
-
 void 
 comperative_policy(int (*compare)(struct proc *p1, struct proc *p2)){
   struct proc *p;
@@ -657,53 +571,116 @@ comperative_policy(int (*compare)(struct proc *p1, struct proc *p2)){
   struct proc *next_p = 0;
   c->proc = 0;
 
-  int mypid=myproc()->pid;//TODO delete
-
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
-    
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        printf("process %d calling compare func next_p=%d\n",mypid, next_p);
-        if(next_p == 0 || compare(next_p, p) > 0){
-          // printf("after compare call, compare result=%d\n",c);
-          if(next_p != 0){
-            printf("process %d after compare call\n",mypid);
+      if(p->state == RUNNABLE && p->chosen == 0) {
+        // printf("process calling compare \n");
+        if(next_p == 0 || compare(next_p, p) > 0){        
+          if( next_p!=0 && next_p->chosen==1 ){
+            acquire(&next_p->lock);
+            next_p->chosen = 0;
             release(&next_p->lock);
           }
+
           next_p = p;
-        }
+          next_p->chosen=1;
+        } 
       }
-      if(p != next_p){
-        release(&p->lock);
+      release(&p->lock);
+    }
+    
+    if(next_p!=0 ){
+      acquire(&next_p->lock);
+      if(next_p->state==RUNNABLE){
+        // Switch to chosen process.  It is the process's job
+        // to release its lock and then reacquire it
+        // before jumping back to us.
+        next_p->state = RUNNING;
+        c->proc = next_p;
+
+        // New runtime -> Init runtime counter with 0
+        // For average burst time calculation
+        next_p->current_runtime = 0;
+
+        // printf("about to switch\n");
+        swtch(&c->context, &next_p->context);
+        // printf("returned from switch\n");
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc=0;
+        // TODO: check if needed
+        next_p->runnable_since=ticks+1;
       }
+      next_p->chosen = 0;
+      release(&next_p->lock);
     }
-
-    // acquire(&next_p->lock);
-    if(next_p->state == RUNNABLE){
-
-      // Switch to chosen process.  It is the process's job
-      // to release its lock and then reacquire it
-      // before jumping back to us.
-      next_p->state = RUNNING;
-      c->proc = next_p;
-
-      // New runtime -> Init runtime counter with 0
-      // For average burst time calculation
-      next_p->current_runtime = 0;
-      swtch(&c->context, &next_p->context);
-      
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc=0;
-      // TODO: check if needed
-      next_p->runnable_since=ticks+1;
-    }
-    release(&next_p->lock);
   }
 }
+
+
+
+// void 
+// comperative_policy(int (*compare)(struct proc *p1, struct proc *p2)){
+//   struct proc *p;
+//   struct cpu *c = mycpu();
+//   struct proc *next_p = 0;
+//   c->proc = 0;
+
+//   for(;;){
+//     // Avoid deadlock by ensuring that devices can interrupt.
+//     intr_on();
+//     for(p = proc; p < &proc[NPROC]; p++) {
+//       acquire(&p->lock);
+//       if(p->state == RUNNABLE) {
+//         // printf("process calling compare \n");
+//         if(next_p == 0 || compare(next_p, p) > 0){        
+//           // in case we have been holding a prev procces, release it
+//           if(next_p != 0 && next_p-> lock.cpu == c){
+//             release(&next_p->lock);
+//           }
+//           next_p = p;
+//         }
+//       }
+//       // If p was not found as min procces, release it
+//       if(p != next_p ){
+//         release(&p->lock);
+//       }
+//     }
+//     if(next_p!=0&&next_p->state == RUNNABLE){
+//       // printf("the process %d is indeed RUNNABLE\n",next_p->pid);    
+
+//       // Switch to chosen process.  It is the process's job
+//       // to release its lock and then reacquire it
+//       // before jumping back to us.
+//       next_p->state = RUNNING;
+//       c->proc = next_p;
+
+//       // New runtime -> Init runtime counter with 0
+//       // For average burst time calculation
+//       next_p->current_runtime = 0;
+
+//       // printf("about to switch\n");
+//       swtch(&c->context, &next_p->context);
+//       // printf("returned from switch\n");
+
+//       // Process is done running for now.
+//       // It should have changed its p->state before coming back.
+//       c->proc=0;
+//       // TODO: check if needed
+//       next_p->runnable_since=ticks+1;
+//     }
+//     if(next_p!=0 && next_p-> lock.cpu == c){
+//       release(&next_p->lock);
+//     }
+//   }
+// }
+
+//endregion 
+
   
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores

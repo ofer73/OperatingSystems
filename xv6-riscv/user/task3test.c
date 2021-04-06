@@ -46,7 +46,7 @@ void test3(){
 	}
 	 else { //child
 	 	sleep(10);
-		for (int i = 0; i < 200; i++){
+		for (int i = 0; i < 20; i++){
 			write(1, "hello i'm a child\n", 18);
 		}
 		sleep(10);
@@ -69,18 +69,21 @@ void test3(){
 	exit(0);
 }
 void testFCFS(){
-	fork();
-	fork();
-	fork();
-
-	int my_pid=getpid();
-	for(int i=0;i<20;i++){
-		printf("current child is: %d ",my_pid);
+	int pid1=fork();
+	if(pid1==0){
+		for(;;){}
 	}
+	else {
+		for(int i=0;i<100;i++){
+			write(1, "hello i'm a parent\n", 20);
+		}
+	}
+
 }
 
 int main(int argc, char** argv){
-	//   test3();
-	testFCFS();
+	printf("starting tests");
+	  test3();
+	// testFCFS();
 	exit(0);
 }
