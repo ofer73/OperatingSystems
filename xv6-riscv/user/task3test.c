@@ -36,47 +36,51 @@ void print_perf(struct perf *performance) {
 
 
 int main(int argc, char** argv){
-  	// int pid1,pid2, status1,status2;
-	// struct perf perf2,perf3;
-	// pid1 = fork();
+  	int pid1,pid2, status1,status2;
+	struct perf perf2,perf3;
+	pid1 = fork();
 	
-	// if (pid1 > 0) { //parent
+	if (pid1 > 0) { //parent
 	
-	// 	int s = wait_stat(&status1, &perf2);
-	// 	printf("pid is: %d\n", s);
-	// 	print_perf(&perf2);
-	// }
-	//  else { //child
-	//  	sleep(10);
-	// 	for (int i = 0; i < 20; i++){
-	// 		write(1, "hello i'm a child\n", 18);
-	// 	}
-	// 	sleep(10);
-	// 	pid2=fork();
-	//  	if(pid2==0){//second child
-	// 		 exit(1);
-	// 	}
-	// 	else//first child
-	// 	{
-	// 		int s = wait_stat(&status2, &perf3);
-	// 		printf("secund child pid is: %d\n", s);
-	// 		print_perf(&perf3);
-	// 	}
-
-    // }
-	// exit(0);
-	
-	int ans=set_priority(2);
-	printf("father ans=%d\n",ans);
-	int pid1=fork();
-	int status;
-	if(pid1>0){
-		wait(&status);
-	}else//child procces
-	{
-		int ans2 = set_priority(6);
-		printf("son ans=%d\n",ans2);
-		exit(0);
+		int s = wait_stat(&status1, &perf2);
+		printf("pid is: %d\n", s);
+		print_perf(&perf2);
 	}
-	return 0;
+	 else { //child
+	 	sleep(10);
+		for (int i = 0; i < 200; i++){
+			write(1, "hello i'm a child\n", 18);
+		}
+		sleep(10);
+		pid2=fork();
+	 	if(pid2==0){//second child
+		sleep(10);
+		for (int i = 0; i < 20; i++){
+			write(1, "hello i'm the second child\n", 28);
+		}
+		exit(1);
+		}
+		else//first child
+		{
+			int s = wait_stat(&status2, &perf3);
+			printf("secund child pid is: %d\n", s);
+			print_perf(&perf3);
+		}
+
+    }
+	exit(0);
+	
+	// int ans=set_priority(2);
+	// printf("father ans=%d\n",ans);
+	// int pid1=fork();
+	// int status;
+	// if(pid1>0){
+	// 	wait(&status);
+	// }else//child procces
+	// {
+	// 	int ans2 = set_priority(6);
+	// 	printf("son ans=%d\n",ans2);
+	// 	exit(0);
+	// }
+	// return 0;
 }

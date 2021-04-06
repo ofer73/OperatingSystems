@@ -27,8 +27,7 @@ struct cpu {
 };
 
 extern struct cpu cpus[NCPU];
-
-extern int current_runtime; 
+extern int is_preemptive;
 
 // per-process data for the trap handling code in trampoline.S.
 // sits in a page by itself just under the trampoline page in the
@@ -109,7 +108,9 @@ struct proc {
 
   // ass1 task4 fields
   int decay_factor;           // priority of proccess (decay factor for CFS with decay Schedueling protocol)
-  //
+  int current_runtime;        // count of clock ticks duration for the current runtime of proccess
+  int runnable_since;         // last clock tick the prcoess became runnable in 
+
 
   // proc_tree_lock must be held when using this:
   struct proc *parent;         // Parent process

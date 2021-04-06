@@ -77,7 +77,7 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2 && p->current_runtime >= QUANTUM &&is_preemptive==1)
     yield();
 
   usertrapret();
@@ -151,9 +151,11 @@ kerneltrap()
 
   // give up the CPU if this is a timer interrupt.
   //Will yield only if it past QUANTUM ticks since the start of current session- changed by us
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING && current_runtime >= QUANTUM)
+  //While is_preemptive=0 yeald will not occur for time interupt 
+  struct proc *p = myproc();
+  if(which_dev == 2 && p != 0 && p->state == RUNNING && p->current_runtime >= QUANTUM && is_preemptive==1)
     yield();
-
+  
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.
   w_sepc(sepc);

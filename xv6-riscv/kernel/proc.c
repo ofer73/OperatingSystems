@@ -15,9 +15,6 @@ struct proc *initproc;
 
 int nextpid = 1;
 
-// Time counter for burst-time calculation
-struct spinlock runtime_lock;
-int current_runtime = 0;
 
 struct spinlock pid_lock;
 
@@ -32,8 +29,8 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
-
-//
+// Flag to determine if scheduling is preemptive (proccesses yield to time interrupts)
+int is_preemptive = 1;
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -59,7 +56,6 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
-  initlock(&runtime_lock,"runtime_lock");//ass3 task3
 
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
@@ -159,8 +155,9 @@ found:
   p->retime = 0;
   p->rutime = 0;
   p->average_bursttime = QUANTUM * 100;
-
+  p->current_runtime = 0;
   p->decay_factor = 5;
+  p->runnable_since = 0;
 
   return p;
 }
@@ -264,6 +261,7 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  p->runnable_since = ticks;
 
   release(&p->lock);
 }
@@ -352,6 +350,7 @@ fork(void)
 
   acquire(&np->lock);
   np->state = RUNNABLE;
+  np->runnable_since = ticks;
   release(&np->lock);
 
   return pid;
@@ -467,6 +466,34 @@ wait(uint64 addr)
   }
 }
 
+// Comperators
+
+// int
+// default_compare(struct proc *p1,struct proc *p2){
+//   return 0;
+// }
+
+int
+FCFS_compare(struct proc *p1,struct proc *p2){
+  return (p1->runnable_since)-(p2->runnable_since);
+}
+
+int
+SRT_compare(struct proc *p1,struct proc *p2){
+  return p1->average_bursttime - p2->average_bursttime;
+}
+
+int
+SFSD_compare(struct proc *p1,struct proc *p2){
+  int p1_priority=(p1->rutime*p1->decay_factor)/(p1->rutime+p1->stime);
+  int p2_priority=(p2->rutime*p2->decay_factor)/(p2->rutime+p2->stime);
+
+  return (p1_priority)-(p2_priority);
+}
+
+
+
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -477,6 +504,24 @@ wait(uint64 addr)
 void
 scheduler(void)
 {
+  #ifdef default
+  default_policy();
+  #endif
+  #ifdef  FCFS
+  is_preemptive = 0;
+  comperative_policy(&FCFS_compare);
+  #endif
+  #ifdef  SRT
+  comperative_policy(&SRT_compare);
+  #endif
+  #ifdef  SFSD
+  comperative_policy(&SFSD_compare);
+  #endif
+}
+
+
+void 
+default_policy(){
   struct proc *p;
   struct cpu *c = mycpu();
   
@@ -495,9 +540,7 @@ scheduler(void)
         c->proc = p;
 
         // New runtime -> Init runtime counter with 0
-        acquire(&runtime_lock);
-        current_runtime = 0;
-        release(&runtime_lock);
+        p->current_runtime = 0;
         
         swtch(&c->context, &p->context);
 
@@ -510,6 +553,137 @@ scheduler(void)
   }
 }
 
+// void 
+// FCFS_policy(){
+//   // non-preemptive policy
+//   is_preemptive=0;
+
+//   struct proc *p;
+//   struct cpu *c = mycpu();
+//   struct proc *first_come_p = 0;
+//   c->proc = 0;
+//   for(;;){
+//     // Avoid deadlock by ensuring that devices can interrupt.
+//     intr_on();
+
+//     for(p = proc; p < &proc[NPROC]; p++) {
+//       acquire(&p->lock);
+//       if(p->state == RUNNABLE) {
+//         if(first_come_p == 0 || first_come_p->runnable_since > p->runnable_since){
+//           first_come_p = p;
+//         }
+//       }
+//       release(&p->lock);
+//     }
+
+//     acquire(&first_come_p->lock);
+//     if(first_come_p->state = RUNNABLE){
+
+//       // Switch to chosen process.  It is the process's job
+//       // to release its lock and then reacquire it
+//       // before jumping back to us.
+//       first_come_p->state = RUNNING;
+//       c->proc = first_come_p;
+
+//       // New runtime -> Init runtime counter with 0
+//       first_come_p->current_runtime = 0;
+//       swtch(&c->context, &first_come_p->context);
+      
+//       // Process is done running for now.
+//       // It should have changed its p->state before coming back.
+//       c->proc=0;
+//       first_come_p->runnable_since=ticks+1;
+//     }
+//     release(&first_come_p);
+//   }
+// }
+
+// void 
+// SRT_policy(){
+//   struct proc *p;
+//   struct cpu *c = mycpu();
+//   struct proc *min_burst_time_p = 0;
+//   c->proc = 0;
+//   for(;;){
+//     // Avoid deadlock by ensuring that devices can interrupt.
+//     intr_on();
+
+//     for(p = proc; p < &proc[NPROC]; p++) {
+//       acquire(&p->lock);
+//       if(p->state == RUNNABLE) {
+//         if(min_burst_time_p == 0 || min_burst_time_p->average_bursttime > p->average_bursttime){
+//           min_burst_time_p = p;
+//         }
+//       }
+//       release(&p->lock);
+//     }
+
+//     acquire(&min_burst_time_p->lock);
+//     if(min_burst_time_p->state = RUNNABLE){
+
+//       // Switch to chosen process.  It is the process's job
+//       // to release its lock and then reacquire it
+//       // before jumping back to us.
+//       min_burst_time_p->state = RUNNING;
+//       c->proc = min_burst_time_p;
+
+//       // New runtime -> Init runtime counter with 0
+//       min_burst_time_p->current_runtime = 0;
+//       swtch(&c->context, &min_burst_time_p->context);
+      
+//       // Process is done running for now.
+//       // It should have changed its p->state before coming back.
+//       c->proc=0;
+//     }
+//     release(&min_burst_time_p);
+//   }
+// }
+
+
+void 
+comperative_policy(int (*compare)(struct proc *p1, struct proc *p2)){
+  struct proc *p;
+  struct cpu *c = mycpu();
+  struct proc *next_p = 0;
+  c->proc = 0;
+  for(;;){
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
+
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        if(next_p == 0 || (*compare)(next_p, p) > 0){
+          next_p = p;
+        }
+      }
+      release(&p->lock);
+    }
+
+    acquire(&next_p->lock);
+    if(next_p->state == RUNNABLE){
+
+      // Switch to chosen process.  It is the process's job
+      // to release its lock and then reacquire it
+      // before jumping back to us.
+      next_p->state = RUNNING;
+      c->proc = next_p;
+
+      // New runtime -> Init runtime counter with 0
+      // For average burst time calculation
+      next_p->current_runtime = 0;
+      swtch(&c->context, &next_p->context);
+      
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      c->proc=0;
+      // TODO: check if needed
+      next_p->runnable_since=ticks+1;
+    }
+    release(&next_p->lock);
+  }
+}
+  
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
@@ -533,7 +707,7 @@ sched(void)
     panic("sched interruptible");
 
   intena = mycpu()->intena;
-  p->average_bursttime =  ALPHA * current_runtime + ((100-ALPHA) * p->average_bursttime) / 100;
+  p->average_bursttime =  ALPHA * p->current_runtime + ((100-ALPHA) * p->average_bursttime) / 100;
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
 }
@@ -545,6 +719,7 @@ yield(void)
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;
+  p->runnable_since=ticks;
   sched();
   release(&p->lock);
 }
@@ -613,6 +788,7 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
+        p->runnable_since = ticks;
       }
       release(&p->lock);
     }
@@ -634,6 +810,7 @@ kill(int pid)
       if(p->state == SLEEPING){
         // Wake process from sleep().
         p->state = RUNNABLE;
+        p->runnable_since=ticks;
       }
       release(&p->lock);
       return 0;
@@ -772,9 +949,6 @@ wait_stat(uint64 stat_addr, uint64 perf_addr){// ass1
 void
 update_times(){
     struct proc *np;
-    acquire(&runtime_lock);
-    current_runtime++;
-    release(&runtime_lock);
 
     for(np = proc; np < &proc[NPROC]; np++){
       acquire(&np->lock);
@@ -787,13 +961,13 @@ update_times(){
         np->retime++;
         break;
       case RUNNING:
+        np->current_runtime++;
         np->rutime++;
         break;
       default:
         break;
       }
     release(&np->lock);
-    //TODO (ofer) update burst time 
     } 
 }
 
@@ -811,3 +985,4 @@ set_priority(int priority){
 
   return 0;
 }
+
