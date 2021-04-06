@@ -111,8 +111,8 @@ int             wait_stat(uint64 stat, uint64 pref);            //ass1 task3
 void            perfi(struct proc *proc, struct perf *perf);    //ass1 task3
 void            update_times();                                 //ass1 task3
 int             set_priority(int priority);                     //ass1 task4
-void            default_policy();
-void            comperative_policy(int (*compare)(struct proc *p1, struct proc *p2));
+void            default_policy() __attribute__((noreturn));
+void            comperative_policy(int (*compare)(struct proc *p1, struct proc *p2)) __attribute__((noreturn));
 // int             default_compare(struct proc *p1, struct proc *p2);
 int             FCFS_compare(struct proc *p1, struct proc *p2);
 int             SRT_compare(struct proc *p1, struct proc *p2);

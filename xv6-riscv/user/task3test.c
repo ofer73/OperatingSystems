@@ -33,10 +33,8 @@ void print_perf(struct perf *performance) {
 // sepc=0x0000000080001d86 stval=0x0000000000000000
 // panic: kerneltrap
 
-
-
-int main(int argc, char** argv){
-  	int pid1,pid2, status1,status2;
+void test3(){
+		int pid1,pid2, status1,status2;
 	struct perf perf2,perf3;
 	pid1 = fork();
 	
@@ -69,18 +67,20 @@ int main(int argc, char** argv){
 
     }
 	exit(0);
-	
-	// int ans=set_priority(2);
-	// printf("father ans=%d\n",ans);
-	// int pid1=fork();
-	// int status;
-	// if(pid1>0){
-	// 	wait(&status);
-	// }else//child procces
-	// {
-	// 	int ans2 = set_priority(6);
-	// 	printf("son ans=%d\n",ans2);
-	// 	exit(0);
-	// }
-	// return 0;
+}
+void testFCFS(){
+	fork();
+	fork();
+	fork();
+
+	int my_pid=getpid();
+	for(int i=0;i<20;i++){
+		printf("current child is: %d ",my_pid);
+	}
+}
+
+int main(int argc, char** argv){
+	//   test3();
+	testFCFS();
+	exit(0);
 }

@@ -475,11 +475,18 @@ wait(uint64 addr)
 
 int
 FCFS_compare(struct proc *p1,struct proc *p2){
-  return (p1->runnable_since)-(p2->runnable_since);
+  printf("inside FCFS comprator p2->runsince=%d\n",p2->runnable_since);
+  printf("\t\t p1->runsince=%d \n",p1->runnable_since);
+  printf("\t\t p1->runnable_since - p2->runnable_since %d\n",p1->runnable_since - p2->runnable_since);
+  return p1->runnable_since - p2->runnable_since;
 }
 
 int
 SRT_compare(struct proc *p1,struct proc *p2){
+  int mypid=myproc()->pid;
+  printf("procces %d inside SRT comprator p2->brst=%d\n",mypid, p2->average_bursttime);
+  // printf("\t\t p1->brst=%d \n",p1->average_bursttime);
+  // printf("\t\t p1->brst - p2->v %d\n",p1->average_bursttime - p2->average_bursttime);
   return p1->average_bursttime - p2->average_bursttime;
 }
 
@@ -504,24 +511,27 @@ SFSD_compare(struct proc *p1,struct proc *p2){
 void
 scheduler(void)
 {
-  #ifdef default
-  default_policy();
+  #ifdef DEFAULT
+    printf("default schedueling policy active\n");
+    default_policy();
+  #elif  FCFS
+    printf("FCFS schedueling policy active\n");
+    is_preemptive = 0;
+    comperative_policy(&FCFS_compare);
+  #elif  SRT
+    printf("SRT schedueling policy active\n");
+    comperative_policy(&SRT_compare);
+  #elif  SFSD
+    printf("SFSD schedueling policy active\n");
+    comperative_policy(&SFSD_compare);
   #endif
-  #ifdef  FCFS
-  is_preemptive = 0;
-  comperative_policy(&FCFS_compare);
-  #endif
-  #ifdef  SRT
-  comperative_policy(&SRT_compare);
-  #endif
-  #ifdef  SFSD
-  comperative_policy(&SFSD_compare);
-  #endif
+
 }
 
 
 void 
 default_policy(){
+
   struct proc *p;
   struct cpu *c = mycpu();
   
@@ -646,21 +656,32 @@ comperative_policy(int (*compare)(struct proc *p1, struct proc *p2)){
   struct cpu *c = mycpu();
   struct proc *next_p = 0;
   c->proc = 0;
+
+  int mypid=myproc()->pid;//TODO delete
+
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
-
+    
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        if(next_p == 0 || (*compare)(next_p, p) > 0){
+        printf("process %d calling compare func next_p=%d\n",mypid, next_p);
+        if(next_p == 0 || compare(next_p, p) > 0){
+          // printf("after compare call, compare result=%d\n",c);
+          if(next_p != 0){
+            printf("process %d after compare call\n",mypid);
+            release(&next_p->lock);
+          }
           next_p = p;
         }
       }
-      release(&p->lock);
+      if(p != next_p){
+        release(&p->lock);
+      }
     }
 
-    acquire(&next_p->lock);
+    // acquire(&next_p->lock);
     if(next_p->state == RUNNABLE){
 
       // Switch to chosen process.  It is the process's job

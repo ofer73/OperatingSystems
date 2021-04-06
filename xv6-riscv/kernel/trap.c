@@ -77,7 +77,7 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && p->current_runtime >= QUANTUM &&is_preemptive==1)
+  if(which_dev == 2 && p->current_runtime >= QUANTUM && is_preemptive==1)
     yield();
 
   usertrapret();
@@ -144,6 +144,7 @@ kerneltrap()
     panic("kerneltrap: interrupts enabled");
 
   if((which_dev = devintr()) == 0){
+    //printf("kernel trap from proccess: %d", myproc()->pid);
     printf("scause %p\n", scause);
     printf("sepc=%p stval=%p\n", r_sepc(), r_stval());
     panic("kerneltrap");
