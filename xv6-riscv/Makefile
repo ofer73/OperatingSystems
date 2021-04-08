@@ -141,6 +141,7 @@ UPROGS=\
 	$U/_zombie\
 	$U/_tracetest\
 	$U/_task3test\
+	$U/_bermantests\
 
 
 fs.img: mkfs/mkfs README path $(UPROGS)

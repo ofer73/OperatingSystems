@@ -21,7 +21,7 @@ void print_perf(struct perf *performance) {
     fprintf(1, "\tstime: %d\n", performance->stime);
     fprintf(1, "\tretime: %d\n", performance->retime);
     fprintf(1, "\trutime: %d\n", performance->rutime);
-    fprintf(1, "\tavarage_btime: %d\n", performance->bursttime);
+    fprintf(1, "\tavarage_btime: %d\n", performance->average_bursttime);
     fprintf(1, "\n\tTurnaround time: %d\n", (performance->ttime - performance->ctime));
 }
 

@@ -296,7 +296,7 @@ perfi(struct proc *proc, struct perf *perf){
   perf->stime = proc->stime;
   perf->retime = proc->retime;
   perf->rutime = proc->rutime;
-  perf->bursttime = proc->average_bursttime;
+  perf->average_bursttime = proc->average_bursttime;
 }
 
 
@@ -492,7 +492,7 @@ SRT_compare(struct proc *p1,struct proc *p2){
 }
 
 int
-SFSD_compare(struct proc *p1,struct proc *p2){
+CFSD_compare(struct proc *p1,struct proc *p2){
   int p1_priority=(p1->rutime*p1->decay_factor)/(p1->rutime+p1->stime);
   int p2_priority=(p2->rutime*p2->decay_factor)/(p2->rutime+p2->stime);
 
@@ -522,9 +522,9 @@ scheduler(void)
   #elif  SRT
     printf("SRT schedueling policy active\n");
     comperative_policy(&SRT_compare);
-  #elif  SFSD
-    printf("SFSD schedueling policy active\n");
-    comperative_policy(&SFSD_compare);
+  #elif  CFSD
+    printf("CFSD schedueling policy active\n");
+    comperative_policy(&CFSD_compare);
   #endif
 
 }
@@ -568,11 +568,11 @@ void
 comperative_policy(int (*compare)(struct proc *p1, struct proc *p2)){
   struct proc *p;
   struct cpu *c = mycpu();
-  struct proc *next_p = 0;
   c->proc = 0;
 
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
+    struct proc *next_p = 0;
     intr_on();
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
@@ -695,6 +695,8 @@ sched(void)
   int intena;
   struct proc *p = myproc();
 
+  p->average_bursttime =  ALPHA * p->current_runtime + ((100-ALPHA) * p->average_bursttime) / 100;
+
   if(!holding(&p->lock))
     panic("sched p->lock");
   if(mycpu()->noff != 1)
@@ -705,7 +707,6 @@ sched(void)
     panic("sched interruptible");
 
   intena = mycpu()->intena;
-  p->average_bursttime =  ALPHA * p->current_runtime + ((100-ALPHA) * p->average_bursttime) / 100;
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
 }
