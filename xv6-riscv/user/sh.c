@@ -52,6 +52,7 @@ struct backcmd {
 int fork1(void);  // Fork but panics on failure.
 void panic(char*);
 struct cmd *parsecmd(char*);
+char PATH[512];
 
 // Execute cmd.  Never returns.
 void
@@ -68,66 +69,100 @@ runcmd(struct cmd *cmd)
     exit(1);
 
   switch(cmd->type){
-  default:
-    panic("runcmd");
+    default:
+      panic("runcmd");
 
-  case EXEC:
-    ecmd = (struct execcmd*)cmd;
-    if(ecmd->argv[0] == 0)
-      exit(1);
-    exec(ecmd->argv[0], ecmd->argv);
-    fprintf(2, "exec %s failed\n", ecmd->argv[0]);
-    break;
+    case EXEC:
+      ecmd = (struct execcmd*)cmd;
+      if(ecmd->argv[0] == 0)
+        exit(1);
+      ////////////////////////////////////////
+      int out=exec(ecmd->argv[0], ecmd->argv);
 
-  case REDIR:
-    rcmd = (struct redircmd*)cmd;
-    close(rcmd->fd);
-    if(open(rcmd->file, rcmd->mode) < 0){
-      fprintf(2, "open %s failed\n", rcmd->file);
-      exit(1);
-    }
-    runcmd(rcmd->cmd);
-    break;
+      if(out==-2){
+        char* name="/path";
+        int index=0, index_p=0;
+        int fd=open(name,O_RDONLY);
+        char str[256];
+        char c;
+        while(read(fd,&c,1)>0){
+          if(c==':'){
+            PATH[index_p]=':';
+            index_p++;
+            for(int i=0;i<strlen(ecmd->argv[0]);i++){//copy argv[0]
+                str[index]=ecmd->argv[0][i];
+                index++;
+            }
+            //&(str+index)=ecmd->argv[0];
+            out=exec(str, ecmd->argv);
 
-  case LIST:
-    lcmd = (struct listcmd*)cmd;
-    if(fork1() == 0)
-      runcmd(lcmd->left);
-    wait(0);
-    runcmd(lcmd->right);
-    break;
+            if(out!=-2){//secess
+              fprintf(2, "exec %s failed\n", ecmd->argv[0]);
+              break;
+            }
+            index=0;
+          }
+          else{
+            str[index]=c;
+            index++;
+            PATH[index_p]=c;
+            index_p++;
+          }      
+        }
+      }   
 
-  case PIPE:
-    pcmd = (struct pipecmd*)cmd;
-    if(pipe(p) < 0)
-      panic("pipe");
-    if(fork1() == 0){
-      close(1);
-      dup(p[1]);
+      fprintf(2, "exec %s failed\n", ecmd->argv[0]);
+      break;
+
+    case REDIR:
+      rcmd = (struct redircmd*)cmd;
+      close(rcmd->fd);
+      if(open(rcmd->file, rcmd->mode) < 0){
+        fprintf(2, "open %s failed\n", rcmd->file);
+        exit(1);
+      }
+      runcmd(rcmd->cmd);
+      break;
+
+    case LIST:
+      lcmd = (struct listcmd*)cmd;
+      if(fork1() == 0)
+        runcmd(lcmd->left);
+      wait(0);
+      runcmd(lcmd->right);
+      break;
+
+    case PIPE:
+      pcmd = (struct pipecmd*)cmd;
+      if(pipe(p) < 0)
+        panic("pipe");
+      if(fork1() == 0){
+        close(1);
+        dup(p[1]);
+        close(p[0]);
+        close(p[1]);
+        runcmd(pcmd->left);
+      }
+      if(fork1() == 0){
+        close(0);
+        dup(p[0]);
+        close(p[0]);
+        close(p[1]);
+        runcmd(pcmd->right);
+      }
       close(p[0]);
       close(p[1]);
-      runcmd(pcmd->left);
-    }
-    if(fork1() == 0){
-      close(0);
-      dup(p[0]);
-      close(p[0]);
-      close(p[1]);
-      runcmd(pcmd->right);
-    }
-    close(p[0]);
-    close(p[1]);
-    wait(0);
-    wait(0);
-    break;
+      wait(0);
+      wait(0);
+      break;
 
-  case BACK:
-    bcmd = (struct backcmd*)cmd;
-    if(fork1() == 0)
-      runcmd(bcmd->cmd);
-    break;
-  }
-  exit(0);
+    case BACK:
+      bcmd = (struct backcmd*)cmd;
+      if(fork1() == 0)
+        runcmd(bcmd->cmd);
+      break;
+    }
+    exit(0);
 }
 
 int

@@ -141,7 +141,7 @@ sys_link(void)
   ip->nlink++;
   iupdate(ip);
   iunlock(ip);
-
+;
   if((dp = nameiparent(new, name)) == 0)
     goto bad;
   ilock(dp);

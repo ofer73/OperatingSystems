@@ -48,6 +48,12 @@ TOOLPREFIX := $(shell if riscv64-unknown-elf-objdump -i 2>&1 | grep 'elf64-big' 
 	echo "***" 1>&2; exit 1; fi)
 endif
 
+
+ifndef SCHEDFLAG
+SCHEDFLAG := DEFAULT
+endif
+
+
 QEMU = qemu-system-riscv64
 
 CC = $(TOOLPREFIX)gcc
@@ -56,7 +62,8 @@ LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
-CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb
+#enable schedualing flag
+CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb -D $(SCHEDFLAG)
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
@@ -132,9 +139,13 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
+	$U/_tracetest\
+	$U/_task3test\
+	$U/_bermantests\
 
-fs.img: mkfs/mkfs README $(UPROGS)
-	mkfs/mkfs fs.img README $(UPROGS)
+
+fs.img: mkfs/mkfs README path $(UPROGS)
+	mkfs/mkfs fs.img README path $(UPROGS)
 
 -include kernel/*.d user/*.d
 
