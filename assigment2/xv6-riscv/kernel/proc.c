@@ -126,9 +126,17 @@ found:
   }
   p->signal_mask= 0;
   p->pending_signals = 0;
+  p->frozen=0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+
+   // Task 2
+   if((p->user_trapframe_backup = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
     release(&p->lock);
     return 0;
@@ -160,6 +168,9 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+  if(p->user_trapframe_backup)
+    kfree((void*)p->user_trapframe_backup);
+  p->user_trapframe_backup = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
@@ -168,7 +179,7 @@ freeproc(struct proc *p)
   p->parent = 0;
   p->name[0] = 0;
   p->chan = 0;
-  p->killed = 0;
+  //p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
 }
@@ -324,7 +335,7 @@ fork(void)
   }
 
   np-> pending_signals=0;
-
+  np->frozen=0;
   release(&wait_lock);
 
   acquire(&np->lock);
@@ -433,7 +444,7 @@ wait(uint64 addr)
     }
 
     // No point waiting if we don't have any children.
-    if(!havekids || p->killed){
+    if(!havekids || p->killed==1){
       release(&wait_lock);
       return -1;
     }
@@ -464,6 +475,18 @@ scheduler(void)
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
+        // if(p->frozen==1){
+        //     if(p->pending_signals & (1<<SIGCONT)){
+        //       // handle cont_sig
+        //       p->frozen = 0;
+        //       p->pending_signals ^= (1<<SIGCONT);  // discard pending cont signal after handle
+        //     }
+        //     else{
+        //     continue;
+        //     }
+        // }
+        
+
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
@@ -505,7 +528,42 @@ sched(void)
   intena = mycpu()->intena;
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
+  //task 2.3.1
+  if(p->frozen==1){
+    if(p->pending_signals & (1<<SIGCONT)){
+      // handle cont_sig
+      p->frozen = 0;
+      p->pending_signals ^= (1<<SIGCONT);  // discard pending cont signal after handle
+    }
+    else{
+      yield();
+    }
+  }
 }
+
+//the process who got the signal will do the following 
+// int 
+// handle_signal(struct proc *p, int signum){
+//   struct sigaction act = p->signal_handlers[signum];
+//   int original_mask = p->signal_mask;
+
+//   if(original_mask & (1<<signum) == 1){//Block signal
+//     return 0;
+//   }
+//   p->pending_signals ^= (1<<signum);  // remove signal from pending 
+//   if(act.sa_handler==SIG_IGN){//after removed from pending, ignore signal
+//     return 0;
+//   }
+//   p->signal_mask = act.sigmask;
+//   switch((uint)act.sa_handler){
+//     case(SIG_DFL)
+//       if(signum==SIGSTOP){
+//         sig_stop_handler();
+//       }
+//       else if(signum == SIGCONT){
+//       }
+//   }
+// }
 
 // Give up the CPU for one scheduling round.
 void
@@ -588,20 +646,22 @@ wakeup(void *chan)
   }
 }
 
-// Kill the process with the given pid.
-// The victim won't exit until it tries to return
-// to user space (see usertrap() in trap.c).
+
+// new kill sending signal to process pid - task 2.2.1
 int
-kill(int pid)
+kill(int pid, int signum)
 {
   struct proc *p;
 
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
     if(p->pid == pid){
-      p->killed = 1;
-      if(p->state == SLEEPING){
-        // Wake process from sleep().
+      if(p->signal_handlers[signum].sa_handler!=(void*)SIG_IGN){
+        p->pending_signals|= (1<<signum);
+      }
+      if(p->state == SLEEPING && signum == SIGKILL){
+        // Wake process from sleep in case it has to die
+        //p->killed = 1;  // TODO: remove and instead switch all checks of p->killed to p->pendingsignals[SIGKILL]
         p->state = RUNNABLE;
       }
       release(&p->lock);
@@ -611,6 +671,49 @@ kill(int pid)
   }
   return -1;
 }
+
+// // Kill the process with the given pid.
+// // The victim won't exit until it tries to return
+// // to user space (see usertrap() in trap.c).
+// int
+// sig_kill(int pid)
+// {
+//   struct proc *p;
+
+//   for(p = proc; p < &proc[NPROC]; p++){
+//     acquire(&p->lock);
+//     if(p->pid == pid){
+//       p->killed = 1;
+//       if(p->state == SLEEPING){
+//         // Wake process from sleep().
+//         p->state = RUNNABLE;
+//       }
+//       release(&p->lock);
+//       return 0;
+//     }
+//     release(&p->lock);
+//   }
+//   return -1;
+// }
+
+int
+sig_stop(int pid)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->pid == pid){
+      p->pending_signals|=(1<<SIGSTOP);
+
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  return -1;
+}
+
 
 // Copy to either a user address, or kernel address,
 // depending on usr_dst.
@@ -673,7 +776,7 @@ procdump(void)
 
 int 
 is_valid_sigmask(int sigmask){
-  if(sigmask & (1<<SIGKILL) == 1 || sigmask & (1<<SIGSTOP)==1)
+  if((sigmask & (1<<SIGKILL)) || (sigmask & (1<<SIGSTOP)))
     return 0;
   return 1;
 }
@@ -706,10 +809,14 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   p->signal_handlers[signum] = *act;
   release(&p->lock);
   
-  return oldact;
+  return 0;
 }
 
 void 
 sigret(void){
-  // TODO:  implement 2.1.5  (and see if this func should be moved to different file)
+  struct proc *p = myproc();
+  if(p!=0&&p->user_trapframe_backup){
+      memmove(p->trapframe, &(p->user_trapframe_backup),sizeof(struct trapframe));  
+  }
+  printf("we shell never be here\n");
 }

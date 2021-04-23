@@ -6,6 +6,9 @@
 #include "proc.h"
 #include "defs.h"
 
+extern void* call_sigret;
+extern void* end_sigret;
+
 struct spinlock tickslock;
 uint ticks;
 
@@ -50,10 +53,11 @@ usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   
+  
   if(r_scause() == 8){
     // system call
 
-    if(p->killed)
+    if(p->killed==1)
       exit(-1);
 
     // sepc points to the ecall instruction,
@@ -65,7 +69,8 @@ usertrap(void)
     intr_on();
 
     syscall();
-  } else if((which_dev = devintr()) != 0){
+  } 
+  else if((which_dev = devintr()) != 0){
     // ok
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
@@ -73,14 +78,125 @@ usertrap(void)
     p->killed = 1;
   }
 
-  if(p->killed)
-    exit(-1);
-
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)
     yield();
 
+  //before returning to user space, check pending signals
+  check_pending_signals(p);
+
+  if(p->killed==1)
+    exit(-1);
+
+
   usertrapret();
+}
+
+void 
+check_pending_signals(struct proc* p){
+  // printf("proc %d is checking pending signals acq=%d\n",p->pid,p->lock->cpu);//TODO delete
+
+  
+  
+  for(int sig_num=0;sig_num<32;sig_num++){
+    printf("are we locking? %d pid=%d i=%d\n",holding(&p->lock),p->pid,sig_num);
+    if((p->pending_signals & (1<<sig_num))&& !(p->signal_mask&(1<<sig_num))){
+      struct sigaction act = p->signal_handlers[sig_num];
+      if(act.sa_handler == (void*)SIG_DFL){
+        switch (sig_num)
+        {          
+          case SIGSTOP:
+              printf("trying to lock before handle stop pid=%d\n",p->pid);//TODO delete
+              acquire(&p->lock);
+              p->frozen = 1;
+              release(&p->lock);
+
+            break;
+          case SIGCONT:    
+            printf("handle sigcont pid=%d\n",p->pid); 
+            // p->frozen = 0;
+            break;
+          default://case DFL or SIGKILL
+            if(act.sa_handler == (void*)SIG_DFL)
+              printf("trying to lock at handle kill\n");//TODO delete
+              acquire(&p->lock);
+              p->killed = 1;
+              release(&p->lock);
+
+              printf("pid = %d handeled kill signal",p->pid);//TODO delete
+        }
+      }
+      else if(act.sa_handler != (void*)SIG_IGN){ 
+        // Its a user signal handler
+        int original_mask = p->signal_mask;
+        backup_trapframe(p->user_trapframe_backup, p->trapframe);
+        handle_user_signal(p, sig_num);
+        
+        p->signal_mask = original_mask;
+      }
+      //turn off pending signal signum
+      p->pending_signals^=1<<sig_num;
+    }
+  }
+}
+void 
+handle_user_signal(struct proc* p,int signum){
+  // p-> signal_mask=p->signal_handlers[signum].sigmask;
+  // p->trapframe->a0=signum;                                //store argument in a0
+  // //inject sigret as the return value
+  // int f_size=(uint)&end_sigret - (uint)&call_sigret;      // size of sigret function
+  // p->trapframe->sp-=f_size;                               // make space for return func
+  // memmove((void*)p->trapframe->sp, &call_sigret, f_size); // put the function in the user stack
+  // p->trapframe->ra = p->trapframe->sp;                    // set the return address to the code calling sigret
+  // p->trapframe->epc=(uint)p->signal_handlers[signum].sa_handler;
+
+  usertrapret();
+}
+
+///TODO delete:
+// //reffffffffffff
+// uint tmp_backup = p->signal_mask;         // switching to user handle mask 
+// p->signal_mask = p->signal_handlers[i].sigmask;
+// p->mask_backup = tmp_backup;     // backup will be restored back in sigret
+// if((mask & p->signal_mask) == 0){   // check that the signal is not blocked
+//   //set flag to block signals when executing user handler
+//   p->userHandlerOn = 1;
+//   //backup trapframe
+//   backup_tf(p);
+//   //inject sigret syscall
+//   p->tf->esp -= compiledFuncSize;   // save memory on stack for sigret function (starting at esp)
+//   memmove((void*)p->tf->esp, &start_sigret, compiledFuncSize); //copy compiled function to esp
+//   *((int*)(p->tf->esp - 4)) = i;    // push signum argument for user handler call
+//   *((int*)(p->tf->esp - 8)) = p->tf->esp; // push return address of compiled sigret function
+//   p->tf->esp -= 8;                        // lower esp after args + return address
+//   p->tf->eip = (uint)sa_handler;          //change instruction pointer field in tf to user handler
+//   p->pending_signals = p->pending_signals ^ mask;     //set bit of signal off (userHandlerOn is already on)
+// //end refffffffffffffffffffffffffffffffffffffffffffffffff
+
+// void handleUserSignal(struct proc* p,int signum){
+//     //put tf on stack
+//     uint esp = p->tf->esp - sizeof(struct trapframe);       //save space for tf
+//     p->usrTFbackup = (struct trapframe*)esp;                
+//     copyTF(p->usrTFbackup,p->tf);                           //put tf in backup
+//     p->tf->esp = esp;                                       //move sp
+//     p->tf->eip = (uint)(p->sigHandlers[signum]);            //move ip to handler()
+//     uint funcSize = sigRetCallEnd-sigRetCall;
+//     p->tf->esp = p->tf->esp-funcSize;                       //save space for the sigret asm call
+//     memmove((void*)(p->tf->esp),sigRetCall,funcSize);       //put sigret asm call on stack
+//     void* sigFunc = (void*)p->tf->esp; //address to function on stack-> keep sigret asm code in sigFunc
+//     while(p->tf->esp--%4!=0);                               //align 4 
+//     p->tf->esp = p->tf->esp-4;                               //place for arg1
+//     memmove((void*)(p->tf->esp),&signum,4);                 //put arg1 on stack
+//     p->tf->esp = p->tf->esp-4;                              //place for arg2
+//     memmove((void*)(p->tf->esp),&sigFunc,4);                //put arg2 on stack
+//     turnOffBit(signum,p);                                    //
+//     p->handlingSignal=1;
+//     return;                                                 
+// }
+
+void
+backup_trapframe(struct trapframe *trap_frame_backup, struct trapframe *user_trap_frame){
+  memmove(trap_frame_backup, user_trap_frame, sizeof(struct trapframe));
 }
 
 //
@@ -218,3 +334,11 @@ devintr()
   }
 }
 
+
+// void turnOffPending(int bit,struct proc* p){
+//   int operand = 1;
+//   operand<<=bit;
+//   operand = ~operand;
+//   int pending = p->pending_signals;
+//   p->pending_signals&=pending;
+// }

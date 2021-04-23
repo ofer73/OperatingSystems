@@ -8,6 +8,8 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct sigaction;
+struct trapframe;
 
 // bio.c
 void            binit(void);
@@ -89,7 +91,7 @@ int             growproc(int);
 void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64);
-int             kill(int);
+int             kill(int, int);
 struct cpu*     mycpu(void);
 struct cpu*     getmycpu(void);
 struct proc*    myproc();
@@ -106,7 +108,8 @@ int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 uint            sigprocmask(uint new_sigmask);//task2.1.3
-int             sigaction(int , const struct sigaction*, struct sigaction*);//task2.1.4
+
+int             sigaction(int , const struct sigaction *act, struct sigaction *old_act);//task2.1.4
 void            sigret(void);                                               //task2.1.5
 // swtch.S
 void            swtch(struct context*, struct context*);
@@ -148,6 +151,9 @@ void            trapinit(void);
 void            trapinithart(void);
 extern struct spinlock tickslock;
 void            usertrapret(void);
+void            check_pending_signals(struct proc* p);
+void            handle_user_signal(struct proc* p,int signum);
+void            backup_trapframe(struct trapframe *trap_frame_backup, struct trapframe *user_trap_frame);
 
 // uart.c
 void            uartinit(void);

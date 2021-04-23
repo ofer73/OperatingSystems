@@ -103,7 +103,7 @@ struct proc {
   enum procstate state;        // Process state
   void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
-  int xstate;                  // Exit status to be returned to parent's wait
+  int xstate;                  // Exit status to be returned to parent's w  ait
   int pid;                     // Process ID
 
   // proc_tree_lock must be held when using this:
@@ -119,10 +119,11 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
-  uint pending_signals;                   //task2
-  uint signal_mask;                       //task2
+  uint pending_signals;                       //task2
+  uint signal_mask;                           //task2
   // void* signal_handlers[32];               //task2
   struct  sigaction signal_handlers[32];      //task2
-  struct trapframe *user_trapframe_backup; //task2
+  struct trapframe *user_trapframe_backup;    //task2
+  int frozen;                                 //task2
   
 };
