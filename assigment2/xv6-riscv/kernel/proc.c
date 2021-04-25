@@ -473,19 +473,11 @@ scheduler(void)
     intr_on();
 
     for(p = proc; p < &proc[NPROC]; p++) {
+      // if(p!=0&&p->pid==3)
+      //     printf("schedualer : 3 state=%s\n",p->state);//TODO delete
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // if(p->frozen==1){
-        //     if(p->pending_signals & (1<<SIGCONT)){
-        //       // handle cont_sig
-        //       p->frozen = 0;
-        //       p->pending_signals ^= (1<<SIGCONT);  // discard pending cont signal after handle
-        //     }
-        //     else{
-        //     continue;
-        //     }
-        // }
-        
+          // printf("schedualer : run pid=%d\n",p->pid);//TODO delete
 
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
@@ -493,7 +485,6 @@ scheduler(void)
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
-
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
@@ -526,19 +517,25 @@ sched(void)
     panic("sched interruptible");
 
   intena = mycpu()->intena;
+
   swtch(&p->context, &mycpu()->context);
+  
+
   mycpu()->intena = intena;
   //task 2.3.1
-  if(p->frozen==1){
-    if(p->pending_signals & (1<<SIGCONT)){
-      // handle cont_sig
-      p->frozen = 0;
-      p->pending_signals ^= (1<<SIGCONT);  // discard pending cont signal after handle
-    }
-    else{
-      yield();
-    }
-  }
+  // if(p->frozen==1){
+  //   if(p->pending_signals & (1<<SIGCONT)){
+  //     // handle cont_sig
+  //     p->frozen = 0;
+  //     p->pending_signals ^= (1<<SIGCONT);  // discard pending cont signal after handle
+  //   }
+  //   else{
+  //     printf("frozen-> yielding pid= %d\n");
+  //     release(&p->lock);
+  //     printf("frozen-> yielding released\n");
+  //     yield();
+  //   }
+  // }
 }
 
 //the process who got the signal will do the following 
@@ -570,6 +567,8 @@ void
 yield(void)
 {
   struct proc *p = myproc();
+  // printf("pid: %d not yet acquired (in yeald)\n",p->pid);//TODO delete
+
   acquire(&p->lock);
   p->state = RUNNABLE;
   sched();
@@ -654,6 +653,7 @@ kill(int pid, int signum)
   struct proc *p;
 
   for(p = proc; p < &proc[NPROC]; p++){
+    // printf("proc %d try to acquire proc %d\n",myproc()->pid,pid);//TODO delete
     acquire(&p->lock);
     if(p->pid == pid){
       if(p->signal_handlers[signum].sa_handler!=(void*)SIG_IGN){
@@ -697,7 +697,7 @@ kill(int pid, int signum)
 // }
 
 int
-sig_stop(int pid)
+sig_stop(int pid)//TODO delete if not used
 {
   struct proc *p;
 

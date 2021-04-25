@@ -19,11 +19,10 @@ initlock(struct spinlock *lk, char *name)
 // Acquire the lock.
 // Loops (spins) until the lock is acquired.
 void
-acquire(struct spinlock *lk)
-{
+acquire(struct spinlock *lk){
   push_off(); // disable interrupts to avoid deadlock.
   if(holding(lk)){
-    printf("pid=%d tried to lock when already holding\n",lk->cpu->proc->pid);
+    printf("pid=%d tried to lock when already holding\n",lk->cpu->proc->pid);//TODO delete
     panic("acquire");
 
   }
@@ -53,7 +52,7 @@ release(struct spinlock *lk)
     panic("release");
 
   lk->cpu = 0;
-
+  
   // Tell the C compiler and the CPU to not move loads or stores
   // past this point, to ensure that all the stores in the critical
   // section are visible to other CPUs before the lock is released,

@@ -40,24 +40,50 @@ test_sigkill(){//
         exit(0);
     }
 }
-
 void
 test_stop_cont(){
     int pid = fork();
+    int i;
     if(pid==0){
+        sleep(2);
+        for(i=0;i<500;i++)
+            printf("%d\n ", i);
+        exit(0);
+    }else{
+        printf("son pid=%d, dad pid=%d\n",pid, getpid());
+        sleep(5);
+        printf("parent send stop ret= %d\n",kill(pid, SIGSTOP));
+        sleep(100);
+        printf("parent send continue ret= %d\n",kill(pid, SIGCONT));
+        wait(0);
+        // for(int i=0;i<100;i++)
+        //  printf("parent..");
+        sleep(10);
+        exit(0);
+    }
+}
+void
+test_stop_contX(){
+    int pid = fork();
+    if(pid==0){
+        sleep(1);
         for(int i=0;i<100;i++)
             printf("child..\n ");
     }
     else{
-        // printf("parent send signal to to stop child\n");
+        printf("son pid=%d, dad pid=%d\n",pid,getpid());
+        printf("parent send signal to to stop child\n");
         printf("sigstop ret= %d\n",kill(pid, SIGSTOP));
         // printf("parent: go to sleep \n");
-        sleep(5);
-        // printf("parent: wakeup \n");
-        // printf("parent send signal to to continue child\n");
-        printf("sigstop ret= %d\n",kill(pid, SIGCONT));
+        // sleep(5);
+        // for(int i=0;i<10;i++)
+        //     printf("parent..");
+        printf("parent send signal to to continue child\n");
+        // printf("sigcont ret= %d\n",kill(pid, SIGCONT));
+        for(int i=0;i<100;i++)
+            printf("parent..");
         sleep(10);
-        exit(0);
+        // exit(0);
     }
     
 
@@ -87,21 +113,22 @@ test_block(){//parent block 22 child block 23
     printf("got %d from calling to sigprocmask\n",ans);
     int pid=fork();
     if(pid==0){
-        ans=sigprocmask(1<<signum2);
-        printf("child got %d from calling to sigprocmask\n",ans);
+        // ans=sigprocmask(1<<signum2);
+        // printf("child got %d from calling to sigprocmask\n",ans);
         sleep(3);
-        for(int i=0;i<10;i++){
-            printf("child blocking signal :-)\n");
+        for(int i=0;i<100;i++){
+            printf("child blocking signal @d :-)\n",i);
         }
 
     }else{
         sleep(1);//wait for child to block sig
         kill(pid,signum1);
         printf("parent: sent signal 22 to child ->child shuld block\n");
-        kill(pid,signum2);
+        // kill(pid,signum2);
         printf("parent: sent signal 23 to child ->child shuld block\n");
-
+        wait(0);
     }
+    exit(0);
 }
 
 void 
@@ -114,7 +141,7 @@ test_ignore(){
         newAct.sigmask = 0;
         newAct.sa_handler=(void*)SIG_IGN;
         int ans=sigaction(signum,&newAct,&oldAct);
-        printf("ans from sigaction %d, old act returned is: mask= %d address= %d",ans,oldAct.sigmask,(int)oldAct.sa_handler);
+        printf("ans from sigaction %d, old act returned is: mask= %d address= %d",ans,oldAct.sigmask,(uint64)oldAct.sa_handler);
         
         sleep(6);
         for(int i=0;i<10;i++){
@@ -128,14 +155,12 @@ test_ignore(){
 }
 
 
-
 int main(){
     // printf("-----------------------------test_sigkill-----------------------------\n");
     // test_sigkill();
 
      printf("-----------------------------test_stop_cont_sig-----------------------------\n");
     test_stop_cont();
-
     
     // printf("-----------------------------test_usersig-----------------------------\n");
     //test_usersig();

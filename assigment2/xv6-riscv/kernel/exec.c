@@ -110,9 +110,10 @@ exec(char *path, char **argv)
     
   // task 2.1.2 
   for(int i=0; i<32; i++){
-    if(!((p->signal_handlers[i].sa_handler) == SIG_IGN))
-        p->signal_handlers[i].sa_handler==SIG_DFL;
-        p->signal_handlers[i].sigmask==0;   
+    if(!((p->signal_handlers[i].sa_handler) == (void*)SIG_IGN)){
+        p->signal_handlers[i].sa_handler=SIG_DFL;
+        p->signal_handlers[i].sigmask=0;   
+    }
   }
 
   // Commit to the user image.
