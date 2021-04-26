@@ -91,7 +91,7 @@ int             growproc(int);
 void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64);
-int             kill(int, int);
+int             kill(int pid, int signum);
 struct cpu*     mycpu(void);
 struct cpu*     getmycpu(void);
 struct proc*    myproc();
@@ -108,11 +108,14 @@ int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 uint            sigprocmask(uint new_sigmask);//task2.1.3
-
 int             sigaction(int , const struct sigaction *act, struct sigaction *old_act);//task2.1.4
-void            sigret(void);                                               //task2.1.5
+void            sigret(void);                                                           //task2.1.5 
+void            turn_off_bit(struct proc *p, int sig_num);
+void            turn_on_bit(struct proc *p, int sig_num);
+
 // swtch.S
 void            swtch(struct context*, struct context*);
+
 
 // spinlock.c
 void            acquire(struct spinlock*);
@@ -153,7 +156,6 @@ extern struct spinlock tickslock;
 void            usertrapret(void);
 void            check_pending_signals(struct proc* p);
 void            handle_user_signal(struct proc* p,int signum);
-void            backup_trapframe(struct trapframe *trap_frame_backup, struct trapframe *user_trap_frame);
 
 // uart.c
 void            uartinit(void);

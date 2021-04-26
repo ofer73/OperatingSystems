@@ -121,9 +121,11 @@ struct proc {
 
   uint pending_signals;                       //task2
   uint signal_mask;                           //task2
-  // void* signal_handlers[32];               //task2
-  struct  sigaction signal_handlers[32];      //task2
+  uint signal_mask_backup;
+  void* signal_handlers[32];                  //task2
+  uint handlers_sigmasks[32];
   struct trapframe *user_trapframe_backup;    //task2
   int frozen;                                 //task2
+  int handling_user_sig_flag;              
   
 };

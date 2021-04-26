@@ -121,22 +121,17 @@ found:
   p->state = USED;
 
   for(int i=0;i<32;i++){
-    p->signal_handlers[i].sa_handler = SIG_DFL;
-    p->signal_handlers[i].sigmask = 0;
+    p->signal_handlers[i] = SIG_DFL;
+    p->handlers_sigmasks[i] = 0;
   }
   p->signal_mask= 0;
   p->pending_signals = 0;
   p->frozen=0;
+  p->signal_mask_backup = 0;
+  p->handling_user_sig_flag = 0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
-    freeproc(p);
-    release(&p->lock);
-    return 0;
-  }
-
-   // Task 2
-   if((p->user_trapframe_backup = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
     release(&p->lock);
     return 0;
@@ -168,8 +163,6 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
-  if(p->user_trapframe_backup)
-    kfree((void*)p->user_trapframe_backup);
   p->user_trapframe_backup = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
@@ -330,8 +323,8 @@ fork(void)
 
   np->signal_mask = p->signal_mask;
   for(int i=0;i<32;i++){
-    np->signal_handlers[i].sa_handler = p->signal_handlers[i].sa_handler;
-    np->signal_handlers[i].sigmask = p->signal_handlers[i].sigmask;
+    np->signal_handlers[i] = p->signal_handlers[i];
+    np->handlers_sigmasks[i] = p->handlers_sigmasks[i];
   }
 
   np-> pending_signals=0;
@@ -656,7 +649,7 @@ kill(int pid, int signum)
     // printf("proc %d try to acquire proc %d\n",myproc()->pid,pid);//TODO delete
     acquire(&p->lock);
     if(p->pid == pid){
-      if(p->signal_handlers[signum].sa_handler!=(void*)SIG_IGN){
+      if(p->signal_handlers[signum]!=(void*)SIG_IGN){
         p->pending_signals|= (1<<signum);
       }
       if(p->state == SLEEPING && signum == SIGKILL){
@@ -793,30 +786,56 @@ sigprocmask(uint new_procmask){
   
   return old_procmask;
 }
+
  
 int 
 sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
-  if(signum<0||signum>31 || signum == SIGKILL || signum == SIGSTOP)
-    return -1;
-  if(act == 0||is_valid_sigmask(act->sigmask) == 0)
+  if(signum<0||signum>31 || signum == SIGKILL || signum == SIGSTOP || act==0)
     return -1;
   struct proc *p = myproc();
+  uint new_mask;
+  copyin(p->pagetable, (char *)&new_mask, (uint64)&act->sigmask, sizeof(act->sigmask));
+  if(is_valid_sigmask(new_mask) == 0)
+    return -1;
   acquire(&p->lock);
   if(oldact!=0){
-    oldact->sa_handler = p->signal_handlers[signum].sa_handler;
-    oldact->sigmask = p->signal_handlers[signum].sigmask;
+    copyout(p->pagetable, (uint64)&oldact->sa_handler, (char *)&p->signal_handlers[signum], sizeof(void*));
+    copyout(p->pagetable, (uint64)&oldact->sigmask, (char *)&p->handlers_sigmasks[signum], sizeof(uint));
   }
-  p->signal_handlers[signum] = *act;
+  copyin(p->pagetable, (char *)&p->signal_handlers[signum], (uint64)&act->sa_handler, sizeof(act->sa_handler));
+  p->handlers_sigmasks[signum]=new_mask;
   release(&p->lock);
-  
+
+  printf("handler address %p = \n",p->signal_handlers[signum]);
+  printf("h_mask %d  \n",p->handlers_sigmasks[signum]);
+
   return 0;
 }
 
 void 
 sigret(void){
   struct proc *p = myproc();
-  if(p!=0&&p->user_trapframe_backup){
-      memmove(p->trapframe, &(p->user_trapframe_backup),sizeof(struct trapframe));  
-  }
-  printf("we shell never be here\n");
+  copyin(p->pagetable, (char *)p->trapframe, (uint64)p->user_trapframe_backup, sizeof(struct trapframe));
+ 
+  // restore user stack pointer
+  p->trapframe->sp += sizeof(struct trapframe);
+
+  p->signal_mask = p->signal_mask_backup;
+  
+  // allow user signal handler since we finished handling the current
+
+  p->handling_user_sig_flag = 0;
+
+}
+
+void
+turn_on_bit(struct proc* p, int signum){
+  if(!p->pending_signals & (1 << signum))
+    p->pending_signals ^= (1 << signum);  
+}
+
+void
+turn_off_bit(struct proc* p, int signum){
+  if(p->pending_signals & (1 << signum))
+    p->pending_signals ^= (1 << signum);  
 }
