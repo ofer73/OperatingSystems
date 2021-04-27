@@ -70,9 +70,12 @@ usertrap(void)
 
     syscall();
   } 
-  else if((which_dev = devintr()) != 0){
+  else if((which_dev = devintr()) != 0)
+  {
     // ok
-  } else {
+  }
+
+  else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
@@ -109,31 +112,27 @@ check_pending_signals(struct proc* p){
   
   for(int sig_num=0;sig_num<32;sig_num++){
     if((p->pending_signals & (1<<sig_num))&& !(p->signal_mask&(1<<sig_num))){
-      printf("at pending pid=%d signum=%d\n",p->pid,sig_num);
+      // printf("at pending pid=%d signum=%d\n",p->pid,sig_num);
       struct sigaction act;
       act.sa_handler = p->signal_handlers[sig_num];
       act.sigmask = p->handlers_sigmasks[sig_num];
 
       if(act.sa_handler == (void*)SIG_DFL){
-        printf("didnt ignore sig_num=%d\n",sig_num);
+        // printf("at handler DFL signum=%d\n",sig_num);
         switch (sig_num)
         {          
           case SIGSTOP:
-              handle_stop(p);
+            handle_stop(p);
             break;
           case SIGCONT:    
             // printf("handle sigcont pid=%d\n",p->pid); //TODO delete
             p->frozen = 0;
             break;
           default://case DFL or SIGKILL
-            if(act.sa_handler == (void*)SIG_DFL){
-              // printf("trying to lock at handle kill\n");//TODO delete
-              acquire(&p->lock);
-              p->killed = 1;
-              release(&p->lock);
-
-              // printf("pid = %d handeled kill signal",p->pid);//TODO delete
-            }
+            // printf("pid = %d handeled kill signal",p->pid);//TODO delete
+            acquire(&p->lock);
+            p->killed = 1;
+            release(&p->lock);
         }
       }
       else if(act.sa_handler==(void*)SIGKILL){
@@ -142,10 +141,38 @@ check_pending_signals(struct proc* p){
         handle_stop(p);
       }      
       else if(act.sa_handler != (void*)SIG_IGN && !p->handling_user_sig_flag){ 
-        printf("at user signal handler pid=%d\n",p->pid);
         // Its a user signal handler
         int original_mask = p->signal_mask;
-        handle_user_signal(p, sig_num);
+        // handle_user_signal(p, sig_num);
+
+        p->handling_user_sig_flag = 1;
+
+        //backup mask, and change the process mask to handler mask 
+        p->signal_mask_backup = p->signal_mask;
+        p->signal_mask= p->handlers_sigmasks[sig_num];
+        
+        //copy current trapframe into the user stack for later use
+        p->trapframe->sp -= sizeof(struct trapframe);
+        p->user_trapframe_backup = (struct trapframe* )(p->trapframe->sp);
+        copyout(p->pagetable, (uint64)p->user_trapframe_backup, (char *)p->trapframe, sizeof(struct trapframe));
+
+        // inject the call to sigret to user stack
+        uint64 size = (uint64)&end_sigret - (uint64)&call_sigret;
+        p->trapframe->sp -= size;
+        copyout(p->pagetable, (uint64)p->trapframe->sp, (char *)&call_sigret, size);
+      
+        // arg0 = signum
+        p->trapframe->a0 = sig_num;
+        
+        // user return address from the user handler will be th .asm code on the user stack
+        p->trapframe->ra = p->trapframe->sp;
+          
+        // Change user program counter to point at the signal handler
+        p->trapframe->epc = (uint64)p->signal_handlers[sig_num];
+        
+        //turn off pending signal
+        turn_off_bit(p, sig_num);
+
         return;
       }
 
@@ -154,7 +181,7 @@ check_pending_signals(struct proc* p){
   }
 }
 void 
-handle_user_signal(struct proc* p, int signum){
+handle_user_signal(struct proc* p, int signum){//TODO delete this functiion
  
   p->handling_user_sig_flag = 1;
 

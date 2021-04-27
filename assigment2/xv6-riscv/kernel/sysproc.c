@@ -120,7 +120,7 @@ sys_sigaction(void)
     return -1;
   if(argaddr(1, &newact) < 0)
     return -1;
-  if(argaddr(1, &oldact) < 0)
+  if(argaddr(2, &oldact) < 0)
     return -1;
 
   return sigaction(signum,newact,oldact);

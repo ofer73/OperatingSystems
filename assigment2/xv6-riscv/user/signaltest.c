@@ -43,40 +43,43 @@ test_sigkill(){//
 
 void
 sig_handler(int signum){
-    char st[3] = "wap";
-    write(1, st, 3);
+    char st[5] = "wap\n";
+    write(1, st, 5);
     return;
 }
 
 void
 sig_handler2(int signum){
-    char st[3] = "dap";
-    write(1, st, 3);
+    char st[5] = "dap\n";
+    write(1, st, 5);
     return;
 }
 
 
 void 
 test_usersig(){
-    printf("inside usersig test!\n");
     int pid = fork();
+    int signum1=3;
     if(pid==0){
         struct sigaction act;
         struct sigaction act2;
+
         printf("sighandler= %p\n",&sig_handler);
         printf("sighandler= %p\n",&sig_handler2);
-        printf("stop test= %p\n",&test_stop_cont);
         uint mask = 0;
         mask ^= (1<<22);
 
-        act.sa_handler = &sig_handler;
+        act.sa_handler = &sig_handler2;
         act.sigmask = mask;
-        act2.sa_handler = &sig_handler2;
-        act2.sigmask = mask;
+        // act2.sa_handler = &sig_handler2;
+        // act2.sigmask = mask;
+
         struct sigaction oldact;
-        struct sigaction oldact2;
-        int ret=sigaction(3,&act,&oldact);
-        int ret2=sigaction(4,&act2,&oldact2);
+        oldact.sigmask=0;
+        oldact.sa_handler=0;
+        int ret=sigaction(signum1,&act,&oldact);
+        // int ret2=sigaction(3,&act2,&oldact);
+        printf("old act->sa handler= %p, mask=%d\n",oldact.sa_handler,oldact.sigmask);
         printf("child return from sigaction = %d\n",ret);
         sleep(10);
         for(int i=0;i<10;i++){
@@ -87,11 +90,12 @@ test_usersig(){
 
     }
     else{
-        sleep(10);
-        printf("parent send sig 3 to child ret=%d\n",kill(pid,3));
-        printf("parent send sig 4 to child ret=%d\n",kill(pid,4));
+        sleep(5);
+        printf("parent send sig 3 to child ret=%d\n",kill(pid,signum1));
+        // printf("parent send sig 4 to child ret=%d\n",kill(pid,4));
 
         wait(0);
+        exit(0);
     }
 }
 void 

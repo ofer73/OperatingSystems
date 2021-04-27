@@ -790,24 +790,30 @@ sigprocmask(uint new_procmask){
  
 int 
 sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
+  
   if(signum<0||signum>31 || signum == SIGKILL || signum == SIGSTOP || act==0)
     return -1;
   struct proc *p = myproc();
+
   uint new_mask;
   copyin(p->pagetable, (char *)&new_mask, (uint64)&act->sigmask, sizeof(act->sigmask));
+
   if(is_valid_sigmask(new_mask) == 0)
     return -1;
   acquire(&p->lock);
+
   if(oldact!=0){
-    copyout(p->pagetable, (uint64)&oldact->sa_handler, (char *)&p->signal_handlers[signum], sizeof(void*));
+    copyout(p->pagetable, (uint64)&oldact->sa_handler, (char *)&p->signal_handlers[signum], sizeof(act->sa_handler));
     copyout(p->pagetable, (uint64)&oldact->sigmask, (char *)&p->handlers_sigmasks[signum], sizeof(uint));
   }
-  copyin(p->pagetable, (char *)&p->signal_handlers[signum], (uint64)&act->sa_handler, sizeof(act->sa_handler));
+
   p->handlers_sigmasks[signum]=new_mask;
+  copyin(p->pagetable, (char *)&p->signal_handlers[signum], (uint64)&act->sa_handler, sizeof(act->sa_handler));
+
   release(&p->lock);
 
-  printf("handler address %p = \n",p->signal_handlers[signum]);
-  printf("h_mask %d  \n",p->handlers_sigmasks[signum]);
+  // printf("handler address %p = \n",p->signal_handlers[signum]);
+  // printf("h_mask %d  \n",p->handlers_sigmasks[signum]);// TODO delete
 
   return 0;
 }
@@ -815,8 +821,11 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
 void 
 sigret(void){
   struct proc *p = myproc();
-  copyin(p->pagetable, (char *)p->trapframe, (uint64)p->user_trapframe_backup, sizeof(struct trapframe));
- 
+
+  int a=copyin(p->pagetable, (char *)p->trapframe, (uint64)p->user_trapframe_backup, sizeof(struct trapframe));
+  // printf("in sigret copyin= %d\n",a);
+    // printf("in sigret trapframe->ip= %d\n",p->trapframe->epc);
+
   // restore user stack pointer
   p->trapframe->sp += sizeof(struct trapframe);
 
