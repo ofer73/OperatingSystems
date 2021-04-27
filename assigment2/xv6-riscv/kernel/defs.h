@@ -95,6 +95,7 @@ int             kill(int pid, int signum);
 struct cpu*     mycpu(void);
 struct cpu*     getmycpu(void);
 struct proc*    myproc();
+struct kthread* mykthread();
 void            procinit(void);
 void            scheduler(void) __attribute__((noreturn));
 void            sched(void);
@@ -112,7 +113,7 @@ int             sigaction(int , const struct sigaction *act, struct sigaction *o
 void            sigret(void);                                                           //task2.1.5 
 void            turn_off_bit(struct proc *p, int sig_num);
 void            turn_on_bit(struct proc *p, int sig_num);
-
+int             init_thread(struct kthread *t);
 // swtch.S
 void            swtch(struct context*, struct context*);
 

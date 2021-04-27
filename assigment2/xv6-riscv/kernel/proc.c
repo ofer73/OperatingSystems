@@ -15,6 +15,9 @@ struct proc *initproc;
 int nextpid = 1;
 struct spinlock pid_lock;
 
+int nexttid = 1;
+struct spinlock tid_lock;
+
 extern void forkret(void);
 static void freeproc(struct proc *p);
 
@@ -47,12 +50,18 @@ void
 procinit(void)
 {
   struct proc *p;
+  struct kthread *t;
   
   initlock(&pid_lock, "nextpid");
+  initlock(&tid_lock,"nexttid");
   initlock(&wait_lock, "wait_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
-      p->kstack = KSTACK((int) (p - proc));
+      // p->kstack = KSTACK((int) (p - proc));
+      for(t = p->kthreads; t < &(p->kthreads[NTHREAD]); t++){
+        initlock(&t->lock, "thread");
+        t->kstack = KSTACK((int) ( (p-proc) * (t - p->kthreads) ));
+      }
   }
 }
 
@@ -85,6 +94,15 @@ myproc(void) {
   return p;
 }
 
+struct kthread*
+mykthread(void){
+  push_off();
+  struct cpu *c = mycpu();
+  struct kthread *t=c->kthread;
+  pop_off();
+  return t;  
+}
+
 int
 allocpid() {
   int pid;
@@ -96,7 +114,17 @@ allocpid() {
 
   return pid;
 }
+int
+alloctid() {
+  int tid;
+  
+  acquire(&tid_lock);
+  tid = nexttid;
+  nexttid = nexttid + 1;
+  release(&tid_lock);
 
+  return tid;
+}
 // Look in the process table for an UNUSED proc.
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
@@ -120,6 +148,7 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
+  // init signals staf
   for(int i=0;i<32;i++){
     p->signal_handlers[i] = SIG_DFL;
     p->handlers_sigmasks[i] = 0;
@@ -130,13 +159,6 @@ found:
   p->signal_mask_backup = 0;
   p->handling_user_sig_flag = 0;
 
-  // Allocate a trapframe page.
-  if((p->trapframe = (struct trapframe *)kalloc()) == 0){
-    freeproc(p);
-    release(&p->lock);
-    return 0;
-  }
-
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
@@ -144,15 +166,50 @@ found:
     release(&p->lock);
     return 0;
   }
+  // initialize threads 
+  struct kthread t= p->kthreads[0];
+  acquire(&t.lock);
+  if(init_thread(&t) == -1){
+    // encoutered problem
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
 
-  // Set up new context to start executing at forkret,
-  // which returns to user space.
-  memset(&p->context, 0, sizeof(p->context));
-  p->context.ra = (uint64)forkret;
-  p->context.sp = p->kstack + PGSIZE;
+  // init the currently unused threads
+  for(int i=1;i<NTHREAD;i++){
+    struct kthread t= p->kthreads[i];
+    t.state=UNUSED;
+    t.chan=0;
+    t.tid=-1;
+    t.trapframe=0;
+  }
 
   return p;
 }
+
+//We start the func with locked kthread
+int
+init_thread(struct kthread *t){
+  t->state = USED;
+  t->tid = alloctid();  
+
+  // Allocate a trapframe page.
+  if((t->trapframe = (struct trapframe *)kalloc()) == 0){
+    freethread(t);
+    release(&t->lock);
+    return -1;
+  }
+
+  // Set up new context to start executing at forkret,
+  // which returns to user space.
+  memset(&(t->context), 0, sizeof(t->context));
+  t->context.ra = (uint64)forkret;
+  t->context.sp = t->kstack + PGSIZE;
+
+  return 0;
+}
+
 
 // free a proc structure and the data hanging from it,
 // including user pages.

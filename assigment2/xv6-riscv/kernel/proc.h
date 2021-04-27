@@ -4,6 +4,8 @@
 #define SIGSTOP 17
 #define SIGCONT 19
 
+#define NTHREAD 8
+
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -30,6 +32,8 @@ struct cpu {
   struct context context;     // swtch() here to enter scheduler().
   int noff;                   // Depth of push_off() nesting.
   int intena;                 // Were interrupts enabled before push_off()?
+  
+  struct kthread *kthread;    // the thread currently running on this cpu. 
 };
 
 //task 2
@@ -40,7 +44,7 @@ struct sigaction {
 
 
 extern struct cpu cpus[NCPU];
-
+extern struct kthread;
 // per-process data for the trap handling code in trampoline.S.
 // sits in a page by itself just under the trampoline page in the
 // user page table. not specially mapped in the kernel page table.
@@ -110,11 +114,12 @@ struct proc {
   struct proc *parent;         // Parent process
 
   // these are private to the process, so p->lock need not be held.
+
   uint64 kstack;               // Virtual address of kernel stack
   uint64 sz;                   // Size of process memory (bytes)
   pagetable_t pagetable;       // User page table
   struct trapframe *trapframe; // data page for trampoline.S
-  struct context context;      // swtch() here to run process
+  // struct context context;      // swtch() here to run process
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
@@ -126,6 +131,23 @@ struct proc {
   uint handlers_sigmasks[32];
   struct trapframe *user_trapframe_backup;    //task2
   int frozen;                                 //task2
-  int handling_user_sig_flag;              
+  int handling_user_sig_flag;        
+
+  struct kthread kthreads[NTHREAD];      
   
 };
+struct kthread
+{
+  struct spinlock lock;
+  enum procstate state;
+  void *chan;                  // If non-zero, sleeping on chan
+  int killed;                  // If non-zero, have been killed
+  int xstate;                  // Exit status to be returned to parent's w  ait
+  int tid;                     // Process ID
+
+  uint64 kstack;               // Virtual address of kernel stack
+  struct trapframe *trapframe; // data page for trampoline.S
+  struct context context;      // swtch() here to run process
+
+};
+
