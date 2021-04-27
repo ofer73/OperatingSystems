@@ -35,13 +35,16 @@ struct spinlock wait_lock;
 void
 proc_mapstacks(pagetable_t kpgtbl) {
   struct proc *p;
-  
+  struct kthread *t;
+
   for(p = proc; p < &proc[NPROC]; p++) {
-    char *pa = kalloc();
-    if(pa == 0)
-      panic("kalloc");
-    uint64 va = KSTACK((int) (p - proc));
-    kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+    for(t = p->kthreads; t < &(p->kthreads[NTHREAD]); t++){
+      char *pa = kalloc();
+      if(pa == 0)
+        panic("kalloc");
+      uint64 va = KSTACK((int) ( (p-proc) * (t - p->kthreads) ));
+      kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+    }
   }
 }
 
@@ -92,7 +95,7 @@ myproc(void) {
   struct proc *p = c->proc;
   pop_off();
   return p;
-}
+}//
 
 struct kthread*
 mykthread(void){
@@ -127,7 +130,7 @@ alloctid() {
 }
 // Look in the process table for an UNUSED proc.
 // If found, initialize state required to run in the kernel,
-// and return with p->lock held.
+// and return with p->lock , t[0]->lock held (in this order).
 // If there are no free procs, or a memory allocation fails, return 0.
 static struct proc*
 allocproc(void)
@@ -198,7 +201,7 @@ init_thread(struct kthread *t){
   if((t->trapframe = (struct trapframe *)kalloc()) == 0){
     freethread(t);
     release(&t->lock);
-    
+
     return -1;
   }
 
@@ -210,7 +213,17 @@ init_thread(struct kthread *t){
 
   return 0;
 }
-
+static void
+freethread(struct kthread *t){
+   if(t->trapframe)
+    kfree((void*)t->trapframe);
+  t->trapframe = 0;
+  t->tid = 0;
+  t->chan = 0;
+  t->killed = 0;
+  t->xstate = 0;
+  t->state = UNUSED;
+}
 
 // free a proc structure and the data hanging from it,
 // including user pages.
@@ -218,9 +231,19 @@ init_thread(struct kthread *t){
 static void
 freeproc(struct proc *p)
 {
-  if(p->trapframe)
-    kfree((void*)p->trapframe);
-  p->trapframe = 0;
+  // if(p->trapframe)
+  //   kfree((void*)p->trapframe);
+  // p->trapframe = 0;
+
+  // Task 3 : release threads
+  struct kthread *t;
+  for(t = p->kthreads; t < &(p->kthreads[NTHREAD]); t++){
+    acquire(&t->lock);
+    if(t->state != UNUSED)
+      freethread(t);
+    release(&t->lock);
+  }
+
   p->user_trapframe_backup = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
@@ -230,7 +253,7 @@ freeproc(struct proc *p)
   p->parent = 0;
   p->name[0] = 0;
   p->chan = 0;
-  //p->killed = 0;
+  p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
 }
@@ -344,6 +367,8 @@ fork(void)
   int i, pid;
   struct proc *np;
   struct proc *p = myproc();
+  struct kthread *np_first_thread;
+  struct kthread *t = mykthread();
 
   // Allocate process.
   if((np = allocproc()) == 0){
@@ -359,10 +384,12 @@ fork(void)
   np->sz = p->sz;
 
   // copy saved user registers.
-  *(np->trapframe) = *(p->trapframe);
+  // *(np->trapframe) = *(p->trapframe);
+  np_first_thread = &np->kthreads[0];
+  *(np_first_thread->trapframe) = *(t->trapframe);
 
   // Cause fork to return 0 in the child.
-  np->trapframe->a0 = 0;
+  np_first_thread->trapframe->a0 = 0;  // TODO: change reading the ret value from proc a0 to thread a0
 
   // increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
@@ -372,25 +399,36 @@ fork(void)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
-  pid = np->pid;
-
-  release(&np->lock);
-
-  acquire(&wait_lock);
-  np->parent = p;
-
   np->signal_mask = p->signal_mask;
   for(int i=0;i<32;i++){
     np->signal_handlers[i] = p->signal_handlers[i];
     np->handlers_sigmasks[i] = p->handlers_sigmasks[i];
   }
-
   np-> pending_signals=0;
   np->frozen=0;
-  release(&wait_lock);
 
+  pid = np->pid;
+
+  release(&np_first_thread->lock);
+  release(&np->lock);
+
+  acquire(&wait_lock);
+  np->parent = p;
+
+  // np->signal_mask = p->signal_mask;//TODO delete later
+  // for(int i=0;i<32;i++){
+  //   np->signal_handlers[i] = p->signal_handlers[i];
+  //   np->handlers_sigmasks[i] = p->handlers_sigmasks[i];
+  // }
+
+  // np-> pending_signals=0;
+  // np->frozen=0;
+  release(&wait_lock);
   acquire(&np->lock);
-  np->state = RUNNABLE;
+  acquire(&np_first_thread->lock);
+  np->state = RUNNABLE;   //TOOD: check if we still need this state or should change
+  np_first_thread->state = RUNNABLE;
+  release(&np_first_thread->lock);
   release(&np->lock);
 
   return pid;
@@ -418,6 +456,7 @@ void
 exit(int status)
 {
   struct proc *p = myproc();
+  struct kthread *t = mykthread();
 
   if(p == initproc)
     panic("init exiting");
@@ -436,6 +475,16 @@ exit(int status)
   end_op();
   p->cwd = 0;
 
+  // Tell all other threads to exit
+  struct kthread *other_t;
+  for(other_t = p->kthreads; other_t<&p->kthreads[NTHREAD];other_t++){
+    if(t != other_t){
+      other_t->killed = 1;
+    }
+  }
+  kthread_join_all();
+  
+
   acquire(&wait_lock);
 
   // Give any children to init.
@@ -450,7 +499,7 @@ exit(int status)
   p->state = ZOMBIE;
 
   release(&wait_lock);
-
+  t->killed = 1; // maybe delete it 
   // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");
@@ -516,31 +565,38 @@ void
 scheduler(void)
 {
   struct proc *p;
+  struct kthread *t;
   struct cpu *c = mycpu();
   
   c->proc = 0;
+  c->kthread=0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
     for(p = proc; p < &proc[NPROC]; p++) {
-      // if(p!=0&&p->pid==3)
-      //     printf("schedualer : 3 state=%s\n",p->state);//TODO delete
-      acquire(&p->lock);
       if(p->state == RUNNABLE) {
-          // printf("schedualer : run pid=%d\n",p->pid);//TODO delete
+        // A runnable proccess is a proccess that may have runable threads
+        for(t=p->kthreads; t<&p->kthreads[NTHREAD];t++){
 
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
+          acquire(&t->lock);
+          if(t->state == RUNNABLE) {
+          
+            // Switch to chosen process.  It is the process's job
+            // to release its lock and then reacquire it
+            // before jumping back to us.
+            t->state = RUNNING;
+            c->proc = p;
+            c->kthread = t;
+            swtch(&c->context, &t->context);
+            // Process is done running for now.
+            // It should have changed its p->state before coming back.
+            c->proc = 0;
+            c->kthread=0;
+          }
+          release(&t->lock);
+        }
       }
-      release(&p->lock);
     }
   }
 }
@@ -552,41 +608,36 @@ scheduler(void)
 // be proc->intena and proc->noff, but that would
 // break in the few places where a lock is held but
 // there's no process.
+
+// We hold the thread lock at the start of the function
 void
 sched(void)
 {
   int intena;
   struct proc *p = myproc();
+  struct kthread *t=mykthread();
 
-  if(!holding(&p->lock))
-    panic("sched p->lock");
+  // if(!holding(&p->lock))
+  //   panic("sched p->lock");
+  // if(mycpu()->noff != 1)
+  //   panic("sched locks");
+  // if(p->state == RUNNING)
+  //   panic("sched running");
+  // if(intr_get())
+  //   panic("sched interruptible");
+  if(!holding(&t->lock))
+    panic("sched t->lock");
   if(mycpu()->noff != 1)
     panic("sched locks");
-  if(p->state == RUNNING)
+  if(t->state == RUNNING)
     panic("sched running");
   if(intr_get())
     panic("sched interruptible");
-
   intena = mycpu()->intena;
 
-  swtch(&p->context, &mycpu()->context);
+  swtch(&t->context, &mycpu()->context);
   
-
   mycpu()->intena = intena;
-  //task 2.3.1
-  // if(p->frozen==1){
-  //   if(p->pending_signals & (1<<SIGCONT)){
-  //     // handle cont_sig
-  //     p->frozen = 0;
-  //     p->pending_signals ^= (1<<SIGCONT);  // discard pending cont signal after handle
-  //   }
-  //   else{
-  //     printf("frozen-> yielding pid= %d\n");
-  //     release(&p->lock);
-  //     printf("frozen-> yielding released\n");
-  //     yield();
-  //   }
-  // }
 }
 
 //the process who got the signal will do the following 
@@ -617,13 +668,13 @@ sched(void)
 void
 yield(void)
 {
-  struct proc *p = myproc();
-  // printf("pid: %d not yet acquired (in yeald)\n",p->pid);//TODO delete
+  // struct proc *p = myproc();
+  struct kthread *t =mykthread();
 
-  acquire(&p->lock);
-  p->state = RUNNABLE;
+  acquire(&t->lock);
+  t->state = RUNNABLE;
   sched();
-  release(&p->lock);
+  release(&t->lock);
 }
 
 // A fork child's very first scheduling by scheduler()
@@ -631,10 +682,12 @@ yield(void)
 void
 forkret(void)
 {
+  // static variables initialized only once
   static int first = 1;
 
   // Still holding p->lock from scheduler.
-  release(&myproc()->lock);
+  // release(&myproc()->lock);
+  release(&mykthread()->lock);    // TODO: check if this change is good
 
   if (first) {
     // File system initialization must be run in the context of a

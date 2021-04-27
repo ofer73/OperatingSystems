@@ -83,6 +83,8 @@ void            printf(char*, ...);
 void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
 
+
+
 // proc.c
 int             cpuid(void);
 void            exit(int);
@@ -94,7 +96,7 @@ void            proc_freepagetable(pagetable_t, uint64);
 int             kill(int pid, int signum);
 struct cpu*     mycpu(void);
 struct cpu*     getmycpu(void);
-struct proc*    myproc();
+struct proc*    myproc(); 
 struct kthread* mykthread();
 void            procinit(void);
 void            scheduler(void) __attribute__((noreturn));
