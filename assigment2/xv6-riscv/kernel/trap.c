@@ -97,19 +97,19 @@ usertrap(void)
 void
 handle_stop(struct proc* p){
   p->frozen=1;
-  while ((p->pending_signals&1<<SIGCONT)==0)
+  while (((p->pending_signals&1<<SIGCONT)==0)&&!(p->pending_signals&1<<SIGKILL))
   {
     // printf("in handle stop, yielding pid=%d \n",p->pid);//TODO delete
     yield();
-  }  
+  }
+  if(p->pending_signals&1<<SIGKILL)
+    p->killed=1;
   p->frozen=0;
 }
 
 
 void 
 check_pending_signals(struct proc* p){
-  // printf("proc %d start check\n",p->pid);//TODO delete
-  
   for(int sig_num=0;sig_num<32;sig_num++){
     if((p->pending_signals & (1<<sig_num))&& !(p->signal_mask&(1<<sig_num))){
       // printf("at pending pid=%d signum=%d\n",p->pid,sig_num);
@@ -142,6 +142,8 @@ check_pending_signals(struct proc* p){
       }      
       else if(act.sa_handler != (void*)SIG_IGN && !p->handling_user_sig_flag){ 
         // Its a user signal handler
+
+
         int original_mask = p->signal_mask;
         // handle_user_signal(p, sig_num);
 

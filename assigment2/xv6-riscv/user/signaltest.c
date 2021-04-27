@@ -16,6 +16,7 @@ struct sigaction {
 void test_sigkill();
 void sig_handler(int);
 void test_stop_cont();
+void sig_handler_loop(int);
 
 
 void 
@@ -48,6 +49,16 @@ sig_handler(int signum){
     return;
 }
 
+void
+sig_handler_loop(int signum){
+    char st[5] = "dap\n";
+    for(int i=0;i<500;i++){
+        // write(1,i,sizeof(int));
+        write(1, st, 5);
+    }
+    
+    return;
+}
 void
 sig_handler2(int signum){
     char st[5] = "dap\n";
@@ -179,6 +190,42 @@ test_ignore(){
 
     }
 }
+void
+test_stop_stop_kill(){
+    struct sigaction act;
+
+    printf("sighandler= %p\n",&sig_handler_loop);
+    uint mask = 0;
+    mask ^= (1<<22);
+
+    act.sigmask = mask;
+    act.sa_handler=&sig_handler_loop;
+
+    struct sigaction oldact;
+    oldact.sigmask=0;
+    oldact.sa_handler=0;
+    
+
+
+    int pid = fork();
+    int i;
+    if(pid==0){
+        int ret=sigaction(3,&act,&oldact);
+        for(i=0;i<500;i++)
+            printf("out-side handler %d\n ", i);
+        exit(0);
+    }else{
+        printf("son pid=%d, dad pid=%d\n",pid, getpid());
+        sleep(5);
+        printf("parent send loop ret= %d\n",kill(pid, 3));
+        sleep(1);
+        printf("parent send kill ret= %d\n",kill(pid, SIGKILL));
+        // kill(pid,SIGKILL);
+        wait(0);
+        printf("parent exiting\n");
+        exit(0);
+    }
+}
 
 
 int main(){
@@ -188,14 +235,18 @@ int main(){
     //  printf("-----------------------------test_stop_cont_sig-----------------------------\n");
     // test_stop_cont();
     
-    printf("-----------------------------test_usersig-----------------------------\n");
-    test_usersig();
+    // printf("-----------------------------test_usersig-----------------------------\n");
+    // test_usersig();
     // printf("-----------------------------test_block-----------------------------\n");
     // test_block();
     // printf("-----------------------------test_ignore-----------------------------\n");
     // test_ignore();
-    // exit(0);
+    printf("-----------------------------test_stop_stop_kill-----------------------------\n");
+    test_stop_stop_kill();
 
+
+
+    exit(0);
     return 0;
 }
 
