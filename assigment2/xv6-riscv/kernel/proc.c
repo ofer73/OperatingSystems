@@ -198,6 +198,7 @@ init_thread(struct kthread *t){
   if((t->trapframe = (struct trapframe *)kalloc()) == 0){
     freethread(t);
     release(&t->lock);
+    
     return -1;
   }
 
