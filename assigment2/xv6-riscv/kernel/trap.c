@@ -49,6 +49,7 @@ usertrap(void)
   w_stvec((uint64)kernelvec);
 
   struct proc *p = myproc();
+  struct kthread *t = mykthread();
   
   // save user program counter.
   p->trapframe->epc = r_sepc();
@@ -88,23 +89,42 @@ usertrap(void)
   //before returning to user space, check pending signals
   check_pending_signals(p);
 
-  if(p->killed==1)
-    exit(-1);
+
+  if(p->killed==1 || t->killed == 1)
+    //exit(-1);
+    kthread_exit(-1);
 
 
   usertrapret();
 }
 void
 handle_stop(struct proc* p){
-  p->frozen=1;
+  // p->frozen=1;
+  struct kthread *t;
+  struct kthread *curr_t = mykthread();
+  // make all other threads belong to the same procces freeze
+  //  
+  for(t = p->kthreads;t<&p->kthreads[NTHREAD];t++){
+    if(t!=curr_t){
+      acquire(&t->lock);
+      t->frozen=1;
+      release(&t->lock);
+    }
+  }
   while (((p->pending_signals&1<<SIGCONT)==0)&&!(p->pending_signals&1<<SIGKILL))
   {
     // printf("in handle stop, yielding pid=%d \n",p->pid);//TODO delete
     yield();
   }
+  for(t = p->kthreads;t<&p->kthreads[NTHREAD];t++){
+    if(t!=curr_t){
+      acquire(&t->lock);
+      t->frozen=0;
+      release(&t->lock);
+    }
+  }
   if(p->pending_signals&1<<SIGKILL)
     p->killed=1;
-  p->frozen=0;
 }
 
 
@@ -126,7 +146,7 @@ check_pending_signals(struct proc* p){
             break;
           case SIGCONT:    
             // printf("handle sigcont pid=%d\n",p->pid); //TODO delete
-            p->frozen = 0;
+            // p->frozen = 0;
             break;
           default://case DFL or SIGKILL
             // printf("pid = %d handeled kill signal",p->pid);//TODO delete
@@ -135,6 +155,7 @@ check_pending_signals(struct proc* p){
             release(&p->lock);
         }
       }
+
       else if(act.sa_handler==(void*)SIGKILL){
         p->killed=1;
       }else if(act.sa_handler==(void*)SIGSTOP){
@@ -204,7 +225,7 @@ handle_user_signal(struct proc* p, int signum){//TODO delete this functiion
   // arg0 = signum
   p->trapframe->a0 = signum;
   
-  // user return address from the user handler will be th .asm code on the user stack
+  // user return address from the user handler will be the asm code on the user stack
   p->trapframe->ra = p->trapframe->sp;
     
   // Change user program counter to point at the signal handler

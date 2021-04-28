@@ -132,3 +132,15 @@ sys_sigret(void)
   sigret();
   return 0;
 }
+
+uint
+sys_kthread_create(void)
+{
+  uint64 start_func;
+  uint64 stack;
+  if(argaddr(0, &start_func) < 0)
+    return -1;
+  if(argaddr(1, &stack) < 0)
+    return -1;
+  kthread_create(start_func,stack);
+}

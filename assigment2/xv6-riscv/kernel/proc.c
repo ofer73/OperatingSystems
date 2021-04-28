@@ -156,9 +156,10 @@ found:
     p->signal_handlers[i] = SIG_DFL;
     p->handlers_sigmasks[i] = 0;
   }
+
   p->signal_mask= 0;
   p->pending_signals = 0;
-  p->frozen=0;
+  p->active_threads=1;
   p->signal_mask_backup = 0;
   p->handling_user_sig_flag = 0;
 
@@ -169,23 +170,27 @@ found:
     release(&p->lock);
     return 0;
   }
-  // initialize threads 
-  struct kthread t= p->kthreads[0];
-  acquire(&t.lock);
-  if(init_thread(&t) == -1){
-    // encoutered problem
-    freeproc(p);
-    release(&p->lock);
-    return 0;
-  }
 
+  // initialize threads 
   // init the currently unused threads
-  for(int i=1;i<NTHREAD;i++){
+  for(int i=0;i<NTHREAD;i++){
     struct kthread t= p->kthreads[i];
     t.state=UNUSED;
     t.chan=0;
     t.tid=-1;
     t.trapframe=0;
+    t.killed = 0;
+    t.frozen = 0;
+  }
+
+  struct kthread t= p->kthreads[0];
+  acquire(&t.lock);
+
+  if(init_thread(&t) == -1){
+    // encoutered problem
+    freeproc(p);
+    release(&p->lock);
+    return 0;
   }
 
   return p;
@@ -196,13 +201,13 @@ int
 init_thread(struct kthread *t){
   t->state = USED;
   t->tid = alloctid();  
-
+  // t->killed=0;
+  // t->frozen=0;
   // Allocate a trapframe page.
   if((t->trapframe = (struct trapframe *)kalloc()) == 0){
     freethread(t);
     release(&t->lock);
-
-    return -1;
+    return 0;
   }
 
   // Set up new context to start executing at forkret,
@@ -213,6 +218,7 @@ init_thread(struct kthread *t){
 
   return 0;
 }
+
 static void
 freethread(struct kthread *t){
    if(t->trapframe)
@@ -255,6 +261,7 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  p->active_threads = 0;
   p->state = UNUSED;
 }
 
@@ -321,6 +328,7 @@ userinit(void)
 
   p = allocproc();
   initproc = p;
+  struct kthread *t = &p->kthreads[0];
   
   // allocate one user page and copy init's instructions
   // and data into it.
@@ -328,13 +336,14 @@ userinit(void)
   p->sz = PGSIZE;
 
   // prepare for the very first "return" from kernel to user.
-  p->trapframe->epc = 0;      // user program counter
-  p->trapframe->sp = PGSIZE;  // user stack pointer
+  t->trapframe->epc = 0;      // user program counter
+  t->trapframe->sp = PGSIZE;  // user stack pointer
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  t->state = RUNNABLE;
 
   release(&p->lock);
 }
@@ -405,7 +414,6 @@ fork(void)
     np->handlers_sigmasks[i] = p->handlers_sigmasks[i];
   }
   np-> pending_signals=0;
-  np->frozen=0;
 
   pid = np->pid;
 
@@ -449,9 +457,37 @@ reparent(struct proc *p)
   }
 }
 
+//kill current thread
+void 
+kthread_exit(int status){
+  struct proc *p = myproc(); 
+  struct kthread *t=mykthread();
+
+  int curr_active_threads; 
+  acquire(&p->lock);
+  p->active_threads--;
+  curr_active_threads=p->active_threads;
+  release(&p->lock);
+
+  acquire(&t->lock);
+  t->xstate = status;
+  t->state  = UNUSED;
+
+  if(curr_active_threads==0)
+    exit(status);
+  else{
+
+    // jump to sched and do not return
+    sched();
+    panic("zombie thread exit");
+  }
+}
+
+
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait().
+
 void
 exit(int status)
 {
@@ -476,13 +512,13 @@ exit(int status)
   p->cwd = 0;
 
   // Tell all other threads to exit
-  struct kthread *other_t;
-  for(other_t = p->kthreads; other_t<&p->kthreads[NTHREAD];other_t++){
-    if(t != other_t){
-      other_t->killed = 1;
-    }
-  }
-  kthread_join_all();
+  // struct kthread *other_t;
+  // for(other_t = p->kthreads; other_t<&p->kthreads[NTHREAD];other_t++){
+  //   if(t != other_t){
+  //     other_t->killed = 1;
+  //   }
+  // }
+  // kthread_join_all();
   
 
   acquire(&wait_lock);
@@ -498,8 +534,10 @@ exit(int status)
   p->xstate = status;
   p->state = ZOMBIE;
 
+  release(&p->lock);// we added
+
   release(&wait_lock);
-  t->killed = 1; // maybe delete it 
+  // t->killed = 1; // maybe delete it 
   // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");
@@ -580,7 +618,7 @@ scheduler(void)
         for(t=p->kthreads; t<&p->kthreads[NTHREAD];t++){
 
           acquire(&t->lock);
-          if(t->state == RUNNABLE) {
+          if(t->state == RUNNABLE && !t->frozen) {
           
             // Switch to chosen process.  It is the process's job
             // to release its lock and then reacquire it
@@ -601,7 +639,7 @@ scheduler(void)
   }
 }
 
-// Switch to scheduler.  Must hold only p->lock
+// Switch to scheduler
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
 // kernel thread, not this CPU. It should
@@ -705,7 +743,8 @@ forkret(void)
 void
 sleep(void *chan, struct spinlock *lk)
 {
-  struct proc *p = myproc();
+  // struct proc *p = myproc();
+  struct kthread *t=mykthread();
   
   // Must acquire p->lock in order to
   // change p->state and then call sched.
@@ -714,20 +753,20 @@ sleep(void *chan, struct spinlock *lk)
   // (wakeup locks p->lock),
   // so it's okay to release lk.
 
-  acquire(&p->lock);  //DOC: sleeplock1
+  acquire(&t->lock);  //DOC: sleeplock1
   release(lk);
 
   // Go to sleep.
-  p->chan = chan;
-  p->state = SLEEPING;
+  t->chan = chan;
+  t->state = SLEEPING;
 
   sched();
 
   // Tidy up.
-  p->chan = 0;
+  t->chan = 0;
 
   // Reacquire original lock.
-  release(&p->lock);
+  release(&t->lock);
   acquire(lk);
 }
 
@@ -737,14 +776,19 @@ void
 wakeup(void *chan)
 {
   struct proc *p;
+  struct kthread *t;
 
   for(p = proc; p < &proc[NPROC]; p++) {
-    if(p != myproc()){
-      acquire(&p->lock);
-      if(p->state == SLEEPING && p->chan == chan) {
-        p->state = RUNNABLE;
+    if(p->state==RUNNABLE){
+      for(t = p->kthreads;t<&p->kthreads[NTHREAD];t++){
+        if(t != mykthread()){
+          acquire(&t->lock);
+          if(t->state == SLEEPING && t->chan == chan) {
+            t->state = RUNNABLE;
+          }
+          release(&t->lock);
+        }
       }
-      release(&p->lock);
     }
   }
 }
@@ -761,11 +805,11 @@ kill(int pid, int signum)
     acquire(&p->lock);
     if(p->pid == pid){
       if(p->signal_handlers[signum]!=(void*)SIG_IGN){
-        p->pending_signals|= (1<<signum);
+        turn_on_bit(p,signum);
       }
       if(p->state == SLEEPING && signum == SIGKILL){
         // Wake process from sleep in case it has to die
-        //p->killed = 1;  // TODO: remove and instead switch all checks of p->killed to p->pendingsignals[SIGKILL]
+       
         p->state = RUNNABLE;
       }
       release(&p->lock);
@@ -932,22 +976,24 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
 void 
 sigret(void){
   struct proc *p = myproc();
+  struct kthread *t=mykthread();
 
-  int a=copyin(p->pagetable, (char *)p->trapframe, (uint64)p->user_trapframe_backup, sizeof(struct trapframe));
-  // printf("in sigret copyin= %d\n",a);
-    // printf("in sigret trapframe->ip= %d\n",p->trapframe->epc);
+  copyin(p->pagetable, (char *)t->trapframe, (uint64)p->user_trapframe_backup, sizeof(struct trapframe));
 
   // restore user stack pointer
-  p->trapframe->sp += sizeof(struct trapframe);
+  acquire(&p->lock);
+  // TODO maybe we will need to also lock the kthread lock
+  t->trapframe->sp += sizeof(struct trapframe);
 
   p->signal_mask = p->signal_mask_backup;
   
   // allow user signal handler since we finished handling the current
 
   p->handling_user_sig_flag = 0;
-
+  release(&p->lock);
 }
 
+// we call turn on and turn off when holding p->lock
 void
 turn_on_bit(struct proc* p, int signum){
   if(!p->pending_signals & (1 << signum))
@@ -958,4 +1004,36 @@ void
 turn_off_bit(struct proc* p, int signum){
   if(p->pending_signals & (1 << signum))
     p->pending_signals ^= (1 << signum);  
+}
+// the function will send kill=1 to all threads in current procces
+void
+kill_proccess(int status){
+  struct proc *p = myproc();
+  struct kthread *t = mykthread();
+  
+  for(t=p->kthreads; t<&p->kthreads[NTHREAD];t++){
+    acquire(&t->lock);
+    t->killed = 1;
+    release(&t->lock);
+  }
+  kthread_exit(status);
+}
+
+int kthread_create(void (*start_func)(), void *stack){
+  struct prop *p = myproc();
+  struct kthread *curr_t = mykthread();
+  struct kthread *other_t;
+  for(other_t = p->kthreads;other_t<&p->kthreads[NTHREAD];other_t++){
+    if(curr_t!=other_t){
+      acquire(&other_t->lock);
+      if(other_t->state==UNUSED){
+        init_thread(other_t);
+        other_t->trapframe->sp = stack;
+        other_t->trapframe->epc = (uint64)start_func;
+        release(&other_t->lock);
+      break;
+    }
+    release(&other_t->lock);
+  }
+  return 1;
 }

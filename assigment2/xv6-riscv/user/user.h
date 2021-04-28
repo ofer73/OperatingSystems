@@ -25,9 +25,13 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 
+// signal sys calls
 uint sigprocmask(uint sigmask);         //2.1.3
 int sigaction(int, const struct sigaction*, struct sigaction*); //2.1.4
 void sigret (void);//2.1.5
+
+// thread sys calls
+int kthread_create ( void ( *start_func ) ( ) , void *stack );
 
 // ulib.c
 int stat(const char*, struct stat*);

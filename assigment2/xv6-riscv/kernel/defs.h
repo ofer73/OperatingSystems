@@ -87,7 +87,7 @@ void            printfinit(void);
 
 // proc.c
 int             cpuid(void);
-void            exit(int);
+void            exit(int);//
 int             fork(void);
 int             growproc(int);
 void            proc_mapstacks(pagetable_t);
@@ -116,6 +116,11 @@ void            sigret(void);                                                   
 void            turn_off_bit(struct proc *p, int sig_num);
 void            turn_on_bit(struct proc *p, int sig_num);
 int             init_thread(struct kthread *t);
+void            kthread_exit(int);
+void            kill_proccess(int status);
+int             kthread_create(void (*start_func)(), void *stack);
+
+
 // swtch.S
 void            swtch(struct context*, struct context*);
 

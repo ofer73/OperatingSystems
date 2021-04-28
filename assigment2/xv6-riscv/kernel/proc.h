@@ -95,7 +95,7 @@ struct trapframe {
   /* 264 */ uint64 t4;
   /* 272 */ uint64 t5;
   /* 280 */ uint64 t6;
-};
+}
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
@@ -109,6 +109,7 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's w  ait
   int pid;                     // Process ID
+  int active_threads;          // How many threads are alive
 
   // proc_tree_lock must be held when using this:
   struct proc *parent;         // Parent process
@@ -130,7 +131,6 @@ struct proc {
   void* signal_handlers[32];                  //task2
   uint handlers_sigmasks[32];
   struct trapframe *user_trapframe_backup;    //task2
-  int frozen;                                 //task2
   int handling_user_sig_flag;        
 
   struct kthread kthreads[NTHREAD];      
@@ -144,6 +144,7 @@ struct kthread
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's w  ait
   int tid;                     // Process ID
+  int frozen;                  // Indicates whether thread was stopped as a result of sigstop
 
   uint64 kstack;               // Virtual address of kernel stack
   struct trapframe *trapframe; // data page for trampoline.S
