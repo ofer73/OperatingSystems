@@ -133,7 +133,7 @@ sys_sigret(void)
   return 0;
 }
 
-uint
+uint64
 sys_kthread_create(void)
 {
   uint64 start_func;
@@ -143,4 +143,31 @@ sys_kthread_create(void)
   if(argaddr(1, &stack) < 0)
     return -1;
   kthread_create(start_func,stack);
+}
+
+uint64
+sys_kthread_id(void){
+  return mykthread()->tid;
+}
+
+uint64
+sys_kthread_exit(void){
+  int n;
+  if(argint(0, &n) < 0)
+    return -1;
+  exit(n);
+  
+  return 0;  // not reached
+}
+
+uint64 
+kthread_join(){
+  int thread_id;
+  uint64 status;
+  if(argint(0, &thread_id) < 0)
+    return -1;
+  if(argaddr(1, &status) < 0)
+    return -1;
+  
+  return kthread_join(thread_id, status);
 }

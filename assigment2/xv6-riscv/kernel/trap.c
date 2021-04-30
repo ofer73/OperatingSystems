@@ -52,7 +52,7 @@ usertrap(void)
   struct kthread *t = mykthread();
   
   // save user program counter.
-  p->trapframe->epc = r_sepc();
+  t->trapframe->epc = r_sepc();
   
   
   if(r_scause() == 8){
@@ -63,7 +63,7 @@ usertrap(void)
 
     // sepc points to the ecall instruction,
     // but we want to return to the next instruction.
-    p->trapframe->epc += 4;
+    t->trapframe->epc += 4;
 
     // an interrupt will change sstatus &c registers,
     // so don't enable until done with those registers.
@@ -79,7 +79,7 @@ usertrap(void)
   else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
-    p->killed = 1;
+    t->killed = 1;
   }
 
   // give up the CPU if this is a timer interrupt.
@@ -97,6 +97,21 @@ usertrap(void)
 
   usertrapret();
 }
+
+int 
+should_cont(struct proc *p){
+  for(int i=0;i<32;i++){
+      if((p->pending_signals & (1 << i)) && !(p->signal_mask & (1 << i)) && ((p->signal_handlers[i] == SIGCONT) || 
+          (i == SIGCONT && p->signal_handlers[i] == SIG_DFL))){
+        turn_off_bit(p, i);
+        return 1;
+      }
+  }
+  return 0;
+}
+
+
+
 void
 handle_stop(struct proc* p){
   // p->frozen=1;
@@ -111,11 +126,13 @@ handle_stop(struct proc* p){
       release(&t->lock);
     }
   }
-  while (((p->pending_signals&1<<SIGCONT)==0)&&!(p->pending_signals&1<<SIGKILL))
-  {
+  int cont = should_cont(p);
+  while (!(p->pending_signals & (1<<SIGKILL)) && !cont ){     
     // printf("in handle stop, yielding pid=%d \n",p->pid);//TODO delete
     yield();
+    cont = should_cont(p);  
   }
+
   for(t = p->kthreads;t<&p->kthreads[NTHREAD];t++){
     if(t!=curr_t){
       acquire(&t->lock);
@@ -130,6 +147,7 @@ handle_stop(struct proc* p){
 
 void 
 check_pending_signals(struct proc* p){
+  struct kthread *t= mykthread();
   for(int sig_num=0;sig_num<32;sig_num++){
     if((p->pending_signals & (1<<sig_num))&& !(p->signal_mask&(1<<sig_num))){
       // printf("at pending pid=%d signum=%d\n",p->pid,sig_num);
@@ -175,23 +193,23 @@ check_pending_signals(struct proc* p){
         p->signal_mask= p->handlers_sigmasks[sig_num];
         
         //copy current trapframe into the user stack for later use
-        p->trapframe->sp -= sizeof(struct trapframe);
-        p->user_trapframe_backup = (struct trapframe* )(p->trapframe->sp);
-        copyout(p->pagetable, (uint64)p->user_trapframe_backup, (char *)p->trapframe, sizeof(struct trapframe));
+        t->trapframe->sp -= sizeof(struct trapframe);
+        p->user_trapframe_backup = (struct trapframe* )(t->trapframe->sp);
+        copyout(p->pagetable, (uint64)p->user_trapframe_backup, (char *)t->trapframe, sizeof(struct trapframe));
 
         // inject the call to sigret to user stack
         uint64 size = (uint64)&end_sigret - (uint64)&call_sigret;
-        p->trapframe->sp -= size;
-        copyout(p->pagetable, (uint64)p->trapframe->sp, (char *)&call_sigret, size);
+        t->trapframe->sp -= size;
+        copyout(p->pagetable, (uint64)t->trapframe->sp, (char *)&call_sigret, size);
       
         // arg0 = signum
-        p->trapframe->a0 = sig_num;
+        t->trapframe->a0 = sig_num;
         
         // user return address from the user handler will be th .asm code on the user stack
-        p->trapframe->ra = p->trapframe->sp;
+        t->trapframe->ra = t->trapframe->sp;
           
         // Change user program counter to point at the signal handler
-        p->trapframe->epc = (uint64)p->signal_handlers[sig_num];
+        t->trapframe->epc = (uint64)p->signal_handlers[sig_num];
         
         //turn off pending signal
         turn_off_bit(p, sig_num);
@@ -203,40 +221,6 @@ check_pending_signals(struct proc* p){
     }
   }
 }
-void 
-handle_user_signal(struct proc* p, int signum){//TODO delete this functiion
- 
-  p->handling_user_sig_flag = 1;
-
-  //backup mask, and change the process mask to handler mask 
-  p->signal_mask_backup = p->signal_mask;
-  p->signal_mask= p->handlers_sigmasks[signum];
-  
-  //copy current trapframe into the user stack for later use
-  p->trapframe->sp -= sizeof(struct trapframe);
-  p->user_trapframe_backup = (struct trapframe* )(p->trapframe->sp);
-  copyout(p->pagetable, (uint64)p->trapframe, (char *)p->trapframe, sizeof(struct trapframe));
-
-  // inject the call to sigret to user stack
-  uint64 size = (uint64)&end_sigret - (uint64)&call_sigret;
-  p->trapframe->sp -= size;
-  copyout(p->pagetable, (uint64)p->trapframe->sp, (char *)&call_sigret, size);
- 
-  // arg0 = signum
-  p->trapframe->a0 = signum;
-  
-  // user return address from the user handler will be the asm code on the user stack
-  p->trapframe->ra = p->trapframe->sp;
-    
-  // Change user program counter to point at the signal handler
-  p->trapframe->epc = (uint64)p->signal_handlers[signum];
-  
-  //turn off pending signal
-  turn_off_bit(p, signum);
-}
-
-
-
 
 //
 // return to user space

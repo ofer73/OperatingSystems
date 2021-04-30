@@ -116,11 +116,12 @@ void            sigret(void);                                                   
 void            turn_off_bit(struct proc *p, int sig_num);
 void            turn_on_bit(struct proc *p, int sig_num);
 int             init_thread(struct kthread *t);
-void            kthread_exit(int);
 void            kill_proccess(int status);
 int             kthread_create(void (*start_func)(), void *stack);
 
-
+// int             kthread_id();
+void            kthread_exit(int status);
+int             kthread_join(int thread_id, int* status);
 // swtch.S
 void            swtch(struct context*, struct context*);
 
