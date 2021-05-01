@@ -106,7 +106,7 @@ struct proc {
 
   // p->lock must be held when using these:
   enum procstate state;        // Process state
-  void *chan;                  // If non-zero, sleeping on chan
+  // void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's w  ait
   int pid;                     // Process ID
@@ -117,7 +117,7 @@ struct proc {
 
   // these are private to the process, so p->lock need not be held.
 
-  uint64 kstack;               // Virtual address of kernel stack
+  // uint64 kstack;               // Virtual address of kernel stack
   uint64 sz;                   // Size of process memory (bytes)
   pagetable_t pagetable;       // User page table
   void *threads_tf_start;       // data page for trampoline.S
@@ -132,7 +132,9 @@ struct proc {
   void* signal_handlers[32];                  //task2
   uint handlers_sigmasks[32];
   struct trapframe *user_trapframe_backup;    //task2
-  int handling_user_sig_flag;        
+  int handling_user_sig_flag;
+
+  int handling_sig_flag;                      // task3
 
   struct kthread kthreads[NTHREAD];      
   

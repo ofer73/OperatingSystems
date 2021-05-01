@@ -38,11 +38,13 @@ proc_mapstacks(pagetable_t kpgtbl) {
   struct kthread *t;
 
   for(p = proc; p < &proc[NPROC]; p++) {
+    int proc_index= (int)proc;
     for(t = p->kthreads; t < &(p->kthreads[NTHREAD]); t++){
       char *pa = kalloc();
       if(pa == 0)
         panic("kalloc");
-      uint64 va = KSTACK((int) ( (p-proc) * (t - p->kthreads) ));
+      int thread_index = (int)(t-p->kthreads);
+      uint64 va = KSTACK( proc_index * NTHREAD + thread_index);
       kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
     }
   }
@@ -61,9 +63,11 @@ procinit(void)
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       // p->kstack = KSTACK((int) (p - proc));
+      int proc_index= (int)proc;
       for(t = p->kthreads; t < &(p->kthreads[NTHREAD]); t++){
         initlock(&t->lock, "thread");
-        t->kstack = KSTACK((int) ( (p-proc) * (t - p->kthreads) ));
+        int thread_index = (int)(t-p->kthreads);
+        t->kstack = KSTACK( proc_index * NTHREAD + thread_index);
       }
   }
 }
@@ -170,6 +174,7 @@ found:
   p->active_threads=1;
   p->signal_mask_backup = 0;
   p->handling_user_sig_flag = 0;
+  p->handling_sig_flag=0;
 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
@@ -231,9 +236,9 @@ init_thread(struct kthread *t){
 
 static void
 freethread(struct kthread *t){
-  if(t->trapframe)
-    kfree((void*)t->trapframe);
-  t->trapframe = 0;
+  // if(t->trapframe)
+  //   kfree((void*)t->trapframe);
+  // t->trapframe = 0;
   t->tid = 0;
   t->chan = 0;
   t->killed = 0;
@@ -268,7 +273,7 @@ freeproc(struct proc *p)
   p->pid = 0;
   p->parent = 0;
   p->name[0] = 0;
-  p->chan = 0;
+  // p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
   p->active_threads = 0;
@@ -484,8 +489,10 @@ kthread_exit(int status){
   t->state  = UNUSED;
   wakeup(t);
 
-  if(curr_active_threads==0)
+  if(curr_active_threads==0){
+    release(&t->lock);
     exit_proccess(status);
+  }
   else{
     // jump to sched and do not return
     sched();
@@ -507,6 +514,9 @@ exit(int status){
   for(t=p->kthreads; t<&p->kthreads[NTHREAD];t++){
     acquire(&t->lock);
     t->killed = 1;
+    // In case of sleeping thread we must wake him up
+    if(t->state == SLEEPING)
+      t->state=RUNNABLE;
     release(&t->lock);
   }
   kthread_exit(status);
@@ -535,16 +545,6 @@ exit_proccess(int status)
   end_op();
   p->cwd = 0;
 
-  // Tell all other threads to exit
-  // struct kthread *other_t;
-  // for(other_t = p->kthreads; other_t<&p->kthreads[NTHREAD];other_t++){
-  //   if(t != other_t){
-  //     other_t->killed = 1;
-  //   }
-  // }
-  // kthread_join_all();
-  
-
   acquire(&wait_lock);
 
   // Give any children to init.
@@ -561,7 +561,9 @@ exit_proccess(int status)
   release(&p->lock);// we added
 
   release(&wait_lock);
-  // t->killed = 1; // maybe delete it 
+
+  // acquire thread lock before sched
+  acquire(&t->lock);
   // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");
@@ -924,13 +926,15 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 void
 procdump(void)
 {
+  // [SLEEPING]  "sleep ",
+  // [RUNNING]   "run   ",
   static char *states[] = {
   [UNUSED]    "unused",
-  [SLEEPING]  "sleep ",
   [RUNNABLE]  "runble",
-  [RUNNING]   "run   ",
   [ZOMBIE]    "zombie"
   };
+
+
   struct proc *p;
   char *state;
 
@@ -1012,9 +1016,10 @@ sigret(void){
 
   p->signal_mask = p->signal_mask_backup;
   
-  // allow user signal handler since we finished handling the current
-
+  // Allow user signal handler since we finished handling the current
   p->handling_user_sig_flag = 0;
+  // Allow other thread to react to signals
+  p->handling_sig_flag = 0;
   release(&p->lock);
 }
 
@@ -1039,15 +1044,19 @@ int kthread_create(void (*start_func)(), void *stack){
     if(curr_t!=other_t){
       acquire(&other_t->lock);
       if(other_t->state==UNUSED){
-        freethread(other_t);  // free memory in case this thread entry was previously used
-        init_thread(other_t);
-        other_t->trapframe->sp = stack;
-        other_t->trapframe->epc = (uint64)start_func;
-        release(&other_t->lock);
-      break;
+          freethread(other_t);  // free memory in case this thread entry was previously used
+          init_thread(other_t);
+          other_t->trapframe->sp = (uint64)stack;
+          other_t->trapframe->epc = (uint64)start_func;
+          release(&other_t->lock);
+          acquire(&p->lock);
+          p->active_threads++;
+          release(&p->lock);
+          other_t->state = RUNNABLE;
+          break;
+      }
+      release(&other_t->lock);
     }
-    release(&other_t->lock);
-  }
   }
   return 1;
 }

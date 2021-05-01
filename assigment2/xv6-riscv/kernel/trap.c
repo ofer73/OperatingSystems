@@ -58,8 +58,10 @@ usertrap(void)
   if(r_scause() == 8){
     // system call
 
-    if(p->killed==1)
-      exit(-1);
+    if(t->killed == 1)
+      kthread_exit(-1); // Kill current thread
+    else if(p->killed)
+      exit(-1); // Kill the hole procces
 
     // sepc points to the ecall instruction,
     // but we want to return to the next instruction.
@@ -87,19 +89,30 @@ usertrap(void)
     yield();
 
   //before returning to user space, check pending signals
-  check_pending_signals(p);
+  if(holding(&p->lock))
+    printf("fuck i am holding the lock in usertrap\n");   // TODO : delete
 
-
-  if(p->killed==1 || t->killed == 1)
-    //exit(-1);
-    kthread_exit(-1);
-
-
+  // check if need to pend signals
+  acquire(&p->lock);
+  if(!p->handling_sig_flag){
+    p->handling_sig_flag = 1;
+    release(&p->lock);
+    check_pending_signals(p);
+    acquire(&p->lock);
+    p->handling_sig_flag = 0;
+  }
+  release(&p->lock);
+  
+  if(t->killed == 1)
+    kthread_exit(-1); // Kill current thread
+  else if(p->killed)
+    exit(-1); // Kill the hole procces
+  
   usertrapret();
 }
 
 int 
-should_cont(struct proc *p){
+check_should_cont(struct proc *p){
   for(int i=0;i<32;i++){
       if((p->pending_signals & (1 << i)) && !(p->signal_mask & (1 << i)) && ((p->signal_handlers[i] == SIGCONT) || 
           (i == SIGCONT && p->signal_handlers[i] == SIG_DFL))){
@@ -117,8 +130,8 @@ handle_stop(struct proc* p){
   // p->frozen=1;
   struct kthread *t;
   struct kthread *curr_t = mykthread();
-  // make all other threads belong to the same procces freeze
-  //  
+
+  // Make all other threads belong to the same procces freeze 
   for(t = p->kthreads;t<&p->kthreads[NTHREAD];t++){
     if(t!=curr_t){
       acquire(&t->lock);
@@ -126,11 +139,11 @@ handle_stop(struct proc* p){
       release(&t->lock);
     }
   }
-  int cont = should_cont(p);
-  while (!(p->pending_signals & (1<<SIGKILL)) && !cont ){     
+  int should_cont = check_should_cont(p);
+  while (!(p->pending_signals & (1<<SIGKILL)) && !should_cont ){     
     // printf("in handle stop, yielding pid=%d \n",p->pid);//TODO delete
     yield();
-    cont = should_cont(p);  
+    should_cont = check_should_cont(p);  
   }
 
   for(t = p->kthreads;t<&p->kthreads[NTHREAD];t++){
@@ -143,7 +156,6 @@ handle_stop(struct proc* p){
   if(p->pending_signals&1<<SIGKILL)
     p->killed=1;
 }
-
 
 void 
 check_pending_signals(struct proc* p){
@@ -290,7 +302,7 @@ kerneltrap()
   }
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+  if(which_dev == 2 && myproc() != 0 && mykthread()!=0 && mykthread()->state == RUNNING)
     yield();
 
   // the yield() may have caused some traps to occur,
