@@ -44,7 +44,7 @@ struct sigaction {
 
 
 extern struct cpu cpus[NCPU];
-extern struct kthread;
+// extern struct kthread;
 // per-process data for the trap handling code in trampoline.S.
 // sits in a page by itself just under the trampoline page in the
 // user page table. not specially mapped in the kernel page table.
@@ -98,7 +98,25 @@ struct trapframe {
 };
 
 enum procstate { UNUSED, USED, RUNNABLE, ZOMBIE };
-enum kthreadstate {UNUSED, USED, SLEEPING, RUNNABLE, RUNNING};
+enum kthreadstate {TUNUSED, TUSED, TSLEEPING, TRUNNABLE, TRUNNING};
+
+
+struct kthread
+{
+  struct spinlock lock;
+  enum kthreadstate state;
+  void *chan;                  // If non-zero, sleeping on chan
+  int killed;                  // If non-zero, have been killed
+  int xstate;                  // Exit status to be returned to parent's w  ait
+  int tid;                     // Process ID
+  int frozen;                  // Indicates whether thread was stopped as a result of sigstop
+
+  uint64 kstack;               // Virtual address of kernel stack
+  struct trapframe *trapframe; // data page for trampoline.S
+  struct context context;      // swtch() here to run process
+
+};
+
 
 // Per-process state
 struct proc {
@@ -139,19 +157,5 @@ struct proc {
   struct kthread kthreads[NTHREAD];      
   
 };
-struct kthread
-{
-  struct spinlock lock;
-  enum kthreadstate state;
-  void *chan;                  // If non-zero, sleeping on chan
-  int killed;                  // If non-zero, have been killed
-  int xstate;                  // Exit status to be returned to parent's w  ait
-  int tid;                     // Process ID
-  int frozen;                  // Indicates whether thread was stopped as a result of sigstop
 
-  uint64 kstack;               // Virtual address of kernel stack
-  struct trapframe *trapframe; // data page for trampoline.S
-  struct context context;      // swtch() here to run process
-
-};
 

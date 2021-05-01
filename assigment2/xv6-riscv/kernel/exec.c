@@ -27,12 +27,13 @@ exec(char *path, char **argv)
 
   // Kill all process threads 
   for(nt = p->kthreads;nt < &p->kthreads[NTHREAD];t++){ 
-    if(nt!=t && nt->state!=UNUSED){
+    if(nt!=t && nt->state!=TUNUSED){
       acquire(&nt->lock);
       nt->killed=1;
-      if(nt->state==SLEEPING){
-        nt->state=RUNNABLE;
+      if(nt->state == TSLEEPING){
+        nt->state = TRUNNABLE;
       }
+
       release(&nt->lock);  
     }
   }

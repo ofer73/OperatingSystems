@@ -161,7 +161,7 @@ sys_kthread_exit(void){
 }
 
 uint64 
-kthread_join(){
+sys_kthread_join(){
   int thread_id;
   uint64 status;
   if(argint(0, &thread_id) < 0)

@@ -203,7 +203,7 @@ void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
 
 
-// number of elements in fixed-size array
+// number of elements in fixed-size array//
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 
 #define MAX_UINT 0xffffffff //task2.1.2
