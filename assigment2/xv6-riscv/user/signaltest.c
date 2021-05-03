@@ -17,6 +17,19 @@ void test_sigkill();
 void sig_handler(int);
 void test_stop_cont();
 void sig_handler_loop(int);
+void sig_handler_loop2(int);
+void test_thread();
+void test_thread2();
+
+
+void test_thread(){
+    printf("Thread is now running\n");
+    kthread_exit(0);
+}
+void test_thread2(){
+    printf("Thread is now running\n");
+    kthread_exit(0);
+}
 
 
 void 
@@ -53,7 +66,15 @@ void
 sig_handler_loop(int signum){
     char st[5] = "dap\n";
     for(int i=0;i<500;i++){
-        // write(1,i,sizeof(int));
+        write(1, st, 5);
+    }
+    
+    return;
+}
+void
+sig_handler_loop2(int signum){
+    char st[5] = "dap\n";
+    for(int i=0;i<500;i++){
         write(1, st, 5);
     }
     
@@ -75,27 +96,26 @@ test_usersig(){
         struct sigaction act;
         struct sigaction act2;
 
-        printf("sighandler= %p\n",&sig_handler);
         printf("sighandler= %p\n",&sig_handler2);
         uint mask = 0;
         mask ^= (1<<22);
 
         act.sa_handler = &sig_handler2;
         act.sigmask = mask;
-        // act2.sa_handler = &sig_handler2;
-        // act2.sigmask = mask;
+        
 
         struct sigaction oldact;
         oldact.sigmask=0;
         oldact.sa_handler=0;
         int ret=sigaction(signum1,&act,&oldact);
-        // int ret2=sigaction(3,&act2,&oldact);
         printf("old act->sa handler= %p, mask=%d\n",oldact.sa_handler,oldact.sigmask);
         printf("child return from sigaction = %d\n",ret);
         sleep(10);
         for(int i=0;i<10;i++){
             printf("child doing stuff before exit \n");
         }
+        ret=sigaction(signum1,&act,&oldact);
+        printf("oldact should be the same as new act before \n oldact->mask=%d \t oldact->sa_handler=%d \n",oldact.sigmask,oldact.sa_handler);
 
         exit(0);
 
@@ -122,17 +142,22 @@ test_block(){//parent block 22 child block 23
         // ans=sigprocmask(1<<signum2);
         // printf("child got %d from calling to sigprocmask\n",ans);
         sleep(3);
-        for(int i=0;i<100;i++){
-            printf("child blocking signal %d :-)\n",i);
+        for(int i=0;i<1000;i++){
+            sleep(1);
+            printf("child blocking signal %d \n",i);
         }
         exit(0);
 
     }else{
         sleep(1);//wait for child to block sig
-        kill(pid,signum1);
         printf("parent: sent signal 22 to child ->child shuld block\n");
-        // kill(pid,signum2);
-        printf("parent: sent signal 23 to child ->child shuld block\n");
+        for(int i=0; i<10;i++){
+            kill(pid,signum1);
+        }
+        sleep(10);
+        kill(pid,signum2);
+
+        printf("parent: sent signal 23 to child ->child shuld die\n");
         wait(0);
     }
     // exit(0);
@@ -144,15 +169,16 @@ test_stop_cont(){
     int i;
     if(pid==0){
         sleep(2);
-        for(i=0;i<500;i++)
+        for(i=0;i<500;i++){
             printf("%d\n ", i);
+        }
         exit(0);
     }else{
-        printf("son pid=%d, dad pid=%d\n",pid, getpid());
+        printf("son pid=%d, dad pid=%d\n", pid, getpid());
         sleep(5);
-        printf("parent send stop ret= %d\n",kill(pid, SIGSTOP));
+        printf("parent send stop ret= %d\n", kill(pid, SIGSTOP));
         sleep(50);
-        printf("parent send continue ret= %d\n",kill(pid, SIGCONT));
+        printf("parent send continue ret= %d\n", kill(pid, SIGCONT));
         wait(0);
         // for(int i=0;i<100;i++)
         //  printf("parent..");
@@ -178,7 +204,7 @@ test_ignore(){
         
         sleep(6);
         for(int i=0;i<300;i++){
-            printf("child ignoring signal :-)\n");
+            printf("child ignoring signal %d\n",i);
         }
         exit(0);
 
@@ -191,20 +217,23 @@ test_ignore(){
     }
 }
 void
-test_stop_stop_kill(){
+test_user_handler_kill(){
     struct sigaction act;
 
-    printf("sighandler= %p\n",&sig_handler_loop);
+    printf("sighandler1= %p\n", &sig_handler_loop);
+    printf("sighandler2= %p\n", &sig_handler_loop2);
+
+
     uint mask = 0;
     mask ^= (1<<22);
 
     act.sigmask = mask;
-    act.sa_handler=&sig_handler_loop;
-
+    
     struct sigaction oldact;
     oldact.sigmask=0;
     oldact.sa_handler=0;
     
+    act.sa_handler=&sig_handler_loop2;
 
 
     int pid = fork();
@@ -218,13 +247,47 @@ test_stop_stop_kill(){
         printf("son pid=%d, dad pid=%d\n",pid, getpid());
         sleep(5);
         printf("parent send loop ret= %d\n",kill(pid, 3));
-        sleep(1);
+        sleep(20);
         printf("parent send kill ret= %d\n",kill(pid, SIGKILL));
-        // kill(pid,SIGKILL);
         wait(0);
         printf("parent exiting\n");
         exit(0);
     }
+}
+
+//TODO delete func
+void thread_test(char *s){
+    int tid;
+    int status;
+    void* stack = malloc(4000);
+    printf("father tid is = %d\n",kthread_id());
+    tid = kthread_create(test_thread, stack);
+
+    printf("after create %d \n",tid);
+
+    int ans =kthread_join(tid, &status);
+    printf("kthread join ret =%d\n",ans);
+    tid = kthread_id();
+    free(stack);
+    printf("Finished testing threads, main thread id: %d, %d\n", tid,status);
+}
+void thread_test2(char *s){
+    int tid;
+    int status;
+    void* stack = malloc(4000);
+    printf("after malloc\n");
+    printf("add of func for new thread : %p\n",&test_thread);
+    printf("add of func for new thread : %p\n",&test_thread2);
+
+    tid = kthread_create(&test_thread2, stack);
+    
+    printf("after create %d \n",tid);
+
+    sleep(5);
+    printf("after kthread\n");
+    tid = kthread_id();
+    free(stack);
+    printf("Finished testing threads, main thread id: %d, %d\n", tid,status);
 }
 
 
@@ -241,10 +304,14 @@ int main(){
     // test_block();
     // printf("-----------------------------test_ignore-----------------------------\n");
     // test_ignore();
-    printf("-----------------------------test_stop_stop_kill-----------------------------\n");
-    test_stop_stop_kill();
+    // printf("-----------------------------test_user_handler_then_kill-----------------------------\n");
+    // test_user_handler_kill();
 
+    printf("-----------------------------thread_test-----------------------------\n");
+    thread_test("fuck");
 
+    // printf("-----------------------------thread_test2-----------------------------\n");
+    // thread_test2("fuck");
 
     exit(0);
     return 0;

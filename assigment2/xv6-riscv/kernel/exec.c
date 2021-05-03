@@ -26,19 +26,19 @@ exec(char *path, char **argv)
 
 
   // Kill all process threads 
-  for(nt = p->kthreads;nt < &p->kthreads[NTHREAD];t++){ 
+  for(nt = p->kthreads;nt < &p->kthreads[NTHREAD];nt++){ 
     if(nt!=t && nt->state!=TUNUSED){
       acquire(&nt->lock);
       nt->killed=1;
       if(nt->state == TSLEEPING){
         nt->state = TRUNNABLE;
       }
-
       release(&nt->lock);  
     }
   }
+
   // Wait for all threads to terminate
-  join_all_kthreads();
+  kthread_join_all();
     
   begin_op();
 
@@ -128,7 +128,7 @@ exec(char *path, char **argv)
     if(*s == '/')
       last = s+1;
   safestrcpy(p->name, last, sizeof(p->name));
-    
+
   // task 2.1.2 
   for(int i=0; i<32; i++){
     if(!((p->signal_handlers[i]) == (void*)SIG_IGN)){
@@ -136,7 +136,6 @@ exec(char *path, char **argv)
         p->handlers_sigmasks[i]=0;   
     }
   }
-
   // Commit to the user image.
   oldpagetable = p->pagetable;
   p->pagetable = pagetable;

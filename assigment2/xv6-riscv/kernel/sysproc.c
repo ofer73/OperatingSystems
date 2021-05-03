@@ -168,6 +168,7 @@ sys_kthread_join(){
     return -1;
   if(argaddr(1, &status) < 0)
     return -1;
-  
-  return kthread_join(thread_id, status);
+  int ans=kthread_join(thread_id, status);
+  printf("in function to lishlof args\n");
+  return ans;
 }

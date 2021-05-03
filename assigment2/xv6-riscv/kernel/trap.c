@@ -130,6 +130,7 @@ handle_stop(struct proc* p){
   // p->frozen=1;
   struct kthread *t;
   struct kthread *curr_t = mykthread();
+  printf("entered handle stop pid %d\n",p->pid);
 
   // Make all other threads belong to the same procces freeze 
   for(t = p->kthreads;t<&p->kthreads[NTHREAD];t++){
@@ -140,10 +141,12 @@ handle_stop(struct proc* p){
     }
   }
   int should_cont = check_should_cont(p);
+  // printf("should cont = %d puid = %d\n",should_cont,p->pid);
   while (!(p->pending_signals & (1<<SIGKILL)) && !should_cont ){     
     // printf("in handle stop, yielding pid=%d \n",p->pid);//TODO delete
     yield();
     should_cont = check_should_cont(p);  
+    // printf("should cont = %d puid = %d\n",should_cont,p->pid);
   }
 
   for(t = p->kthreads;t<&p->kthreads[NTHREAD];t++){
@@ -159,6 +162,11 @@ handle_stop(struct proc* p){
 
 void 
 check_pending_signals(struct proc* p){
+  if(p->pid==4){
+    // printf("son in pending sig\n");
+    if(p->pending_signals & (1<<SIGSTOP))
+      printf("recieved stop sig\n");
+  }
   struct kthread *t= mykthread();
   for(int sig_num=0;sig_num<32;sig_num++){
     if((p->pending_signals & (1<<sig_num))&& !(p->signal_mask&(1<<sig_num))){
@@ -172,10 +180,12 @@ check_pending_signals(struct proc* p){
         switch (sig_num)
         {          
           case SIGSTOP:
+            printf("handle stop pid=%d\n",p->pid); //TODO delete
+
             handle_stop(p);
             break;
           case SIGCONT:    
-            // printf("handle sigcont pid=%d\n",p->pid); //TODO delete
+            printf("handle sigcont pid=%d\n",p->pid); //TODO delete
             // p->frozen = 0;
             break;
           default://case DFL or SIGKILL
@@ -242,12 +252,15 @@ usertrapret(void)
 {
   struct proc *p = myproc();
   struct kthread *t = mykthread();
-
+  int mytid = mykthread()->tid;
   // we're about to switch the destination of traps from
   // kerneltrap() to usertrap(), so turn off interrupts until
   // we're back in user space, where usertrap() is correct.
+  
+
   intr_off();
-  printf("after intr_off in usertrapret");
+  
+
   // send syscalls, interrupts, and exceptions to trampoline.S
   w_stvec(TRAMPOLINE + (uservec - trampoline));
 
@@ -257,6 +270,7 @@ usertrapret(void)
   t->trapframe->kernel_sp = t->kstack + PGSIZE; // process's kernel stack
   t->trapframe->kernel_trap = (uint64)usertrap;
   t->trapframe->kernel_hartid = r_tp();         // hartid for cpuid()
+ 
 
   // set up the registers that trampoline.S's sret will use
   // to get to user space.
@@ -266,6 +280,7 @@ usertrapret(void)
   x &= ~SSTATUS_SPP; // clear SPP to 0 for user mode
   x |= SSTATUS_SPIE; // enable interrupts in user mode
   w_sstatus(x);
+  
 
   // set S Exception Program Counter to the saved user pc.
   w_sepc(t->trapframe->epc);
@@ -273,11 +288,30 @@ usertrapret(void)
   // tell trampoline.S the user page table to switch to.
   uint64 satp = MAKE_SATP(p->pagetable);
 
+
   // jump to trampoline.S at the top of memory, which 
   // switches to the user page table, restores user registers,
   // and switches to user mode with sret.
   uint64 fn = TRAMPOLINE + (userret - trampoline);
-  ((void (*)(uint64,uint64))fn)(TRAPFRAME, satp);
+  // if(mytid == 4)
+    // printf("end of usertrap tid= %d\n",mykthread()->tid);
+  int thread_ind = (int)(t - p->kthreads);
+  struct trapframe *tf = TRAPFRAME;
+  tf += thread_ind;
+  static int print=0;
+   if(mytid == 3 && !print){
+    // printf("thread_ind= %d, tfsize = %p\n",thread_ind,  sizeof(struct trapframe));
+    // printf("addr of tf: %p\n",tf);
+    // printf("addr of tf: %p\n",TRAPFRAME);
+    // printf("addr of &trapframe: %p\n",t->trapframe);
+
+    printf("epc t->trapframe is %p\n",t->trapframe->epc);
+    print =0;
+    printf("fuck\n");
+
+   }
+
+  ((void (*)(uint64,uint64))fn)(tf, satp);
 }
 
 // interrupts and exceptions from kernel code go here via kernelvec,
@@ -296,6 +330,7 @@ kerneltrap()
     panic("kerneltrap: interrupts enabled");
 
   if((which_dev = devintr()) == 0){
+    printf("thread %d recieved kernel trap\n",mykthread()->tid);
     printf("scause %p\n", scause);
     printf("sepc=%p stval=%p\n", r_sepc(), r_stval());
     panic("kerneltrap");

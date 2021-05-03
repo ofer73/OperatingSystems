@@ -44,7 +44,6 @@ kvmmake(void)
 
   // map kernel stacks
   proc_mapstacks(kpgtbl);
-  printf("10\n");
 
   return kpgtbl;
 }
@@ -209,7 +208,6 @@ uvminit(pagetable_t pagetable, uchar *src, uint sz)
   mem = kalloc();
   memset(mem, 0, PGSIZE);
   mappages(pagetable, 0, PGSIZE, (uint64)mem, PTE_W|PTE_R|PTE_X|PTE_U);
-  printf("after mappages in uvminit\n");
   memmove(mem, src, sz);
 }
 
