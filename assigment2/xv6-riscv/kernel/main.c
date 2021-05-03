@@ -43,9 +43,13 @@ main()
     __sync_synchronize();
     printf("hart %d starting\n", cpuid());
     kvminithart();    // turn on paging
+    printf("hart %d kvm\n", cpuid());
     trapinithart();   // install kernel trap vector
-    plicinithart();   // ask PLIC for device interrupts
-  }
+    printf("hart %d trap\n", cpuid());
 
+    plicinithart();   // ask PLIC for device interrupts
+    printf("hart %d plic\n", cpuid());
+  }
+  printf("before sched %d \n", cpuid());
   scheduler();        
 }

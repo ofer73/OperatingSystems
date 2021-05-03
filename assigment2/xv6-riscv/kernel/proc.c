@@ -157,7 +157,7 @@ found:
   p->state = USED;
 
     // Allocate a trapframe page.
-  if((p->threads_tf_start =(void *)kalloc() == 0)){
+  if((p->threads_tf_start =kalloc()) == 0){
     freeproc(p);
     release(&p->lock);
     return 0;
@@ -189,21 +189,21 @@ found:
   // initialize threads 
   // init the currently unused threads
   for(int i=0;i<NTHREAD;i++){
-    struct kthread t= p->kthreads[i];
-    t.state=TUNUSED;
-    t.chan=0;
-    t.tid=-1;
-    t.trapframe = (struct trapframe *)p->threads_tf_start + i;     //TODO: check if good or maybe + i*sizeof(struct trapframe)
-    printf("addr of t %d is %p\n",i ,t.trapframe);
-    t.killed = 0;
-    t.frozen = 0;
+    struct kthread *t= &p->kthreads[i];
+    t->state=TUNUSED;
+    t->chan=0;
+    t->tid=-1;
+    t->trapframe = (struct trapframe *)p->threads_tf_start + i;     //TODO: check if good or maybe + i*sizeof(struct trapframe)
+    printf("addr of t %d is %p\n",i ,t->trapframe);
+    t->killed = 0;
+    t->frozen = 0;
   }
   printf("finished thread loop\n");
 
-  struct kthread t= p->kthreads[0];
-  acquire(&t.lock);
+  struct kthread *t= &p->kthreads[0];
+  acquire(&t->lock);
 
-  if(init_thread(&t) == -1){
+  if(init_thread(t) == -1){
     printf("after init_threat failed\n");
     // encoutered problem
     freeproc(p);
@@ -642,20 +642,26 @@ scheduler(void)
   struct proc *p;
   struct kthread *t;
   struct cpu *c = mycpu();
-  
+  printf("cpu %d\n,",cpuid());
+
   c->proc = 0;
   c->kthread=0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
+    printf("before intr_on\n");
+
     intr_on();
+    printf("int_on\n");
 
     for(p = proc; p < &proc[NPROC]; p++) {
       if(p->state == RUNNABLE) {
+        printf("p %d is runnable\n",p->pid);
         // A runnable proccess is a proccess that may have runable threads
         for(t=p->kthreads; t<&p->kthreads[NTHREAD];t++){
 
           acquire(&t->lock);
           if(t->state == TRUNNABLE && !t->frozen) {
+            printf("found runnable\n");
           
             // Switch to chosen process.  It is the process's job
             // to release its lock and then reacquire it
