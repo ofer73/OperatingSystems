@@ -315,6 +315,38 @@ void very_easy_thread_test(char *s){
     kthread_exit(0);
 }
 
+
+void
+reparent(char *s)
+{
+  int master_pid = getpid();
+  printf("master id = %d\n",master_pid);
+  for(int i = 0; i < 200; i++){
+    int pid = fork();
+    if(pid < 0){
+      printf("%s: fork failed\n", s);
+      exit(1);
+    }
+    if(pid){
+    //   printf("1\n");//TODO delete
+
+      if(wait(0) != pid){
+        printf("%s: wait wrong pid\n", s);
+        exit(1);
+      }
+    } else {
+      int pid2 = fork();
+      
+        // if(pid2)
+        //     wait(0);
+
+        
+      exit(0);
+    }
+  }
+  exit(0);
+}
+
 int main(){
     // printf("-----------------------------test_sigkill-----------------------------\n");
     // test_sigkill();
@@ -331,11 +363,15 @@ int main(){
     // printf("-----------------------------test_user_handler_then_kill-----------------------------\n");
     // test_user_handler_kill();
 
-    printf("-----------------------------thread_test-----------------------------\n");
-    thread_test("fuck");
+    // printf("-----------------------------thread_test-----------------------------\n");
+    // thread_test("fuck");
 
     // printf("-----------------------------very easy thread test-----------------------------\n");
     // very_easy_thread_test("ff");
+
+
+    printf("-----------------------------reparent test-----------------------------\n");
+    reparent("ff");
 
     exit(0);
     return 0;
