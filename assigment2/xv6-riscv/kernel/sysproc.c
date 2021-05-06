@@ -155,7 +155,7 @@ sys_kthread_exit(void){
   int n;
   if(argint(0, &n) < 0)
     return -1;
-  exit(n);
+  kthread_exit(n);
   
   return 0;  // not reached
 }
@@ -168,7 +168,6 @@ sys_kthread_join(){
     return -1;
   if(argaddr(1, &status) < 0)
     return -1;
-  int ans=kthread_join(thread_id, status);
-  printf("in function to lishlof args\n");
-  return ans;
+  
+  return kthread_join(thread_id, status);
 }

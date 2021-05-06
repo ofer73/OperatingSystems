@@ -209,3 +209,7 @@ void            virtio_disk_intr(void);
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 
 #define MAX_UINT 0xffffffff //task2.1.2
+
+#define MAX_STACK_SIZE 4000
+
+void            printTF(struct kthread *t);//for debug, delete it later

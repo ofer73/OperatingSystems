@@ -20,15 +20,25 @@ void sig_handler_loop(int);
 void sig_handler_loop2(int);
 void test_thread();
 void test_thread2();
+void test_thread_loop();
 
 
 void test_thread(){
-    printf("Thread is now running\n");
-    kthread_exit(0);
+    sleep(5);
+    printf("Thread is now running tid=%d\n",kthread_id());
+    kthread_exit(9);
+}
+void test_thread_loop(){
+    sleep(5);
+    for(int i=0;i<100;i++){
+        printf("%d:Thread is now running tid=%d\n",i,kthread_id());
+    }
+    kthread_exit(9);
 }
 void test_thread2(){
-    printf("Thread is now running\n");
-    kthread_exit(0);
+    sleep(5);
+    printf("Thread is now running tid=%d\n",kthread_id());
+    kthread_exit(9);
 }
 
 
@@ -262,11 +272,11 @@ void thread_test(char *s){
     void* stack = malloc(4000);
     printf("father tid is = %d\n",kthread_id());
     tid = kthread_create(test_thread, stack);
-
-    printf("after create %d \n",tid);
+    printf("child tid %d",tid);
+    printf("father tid is = %d\n",kthread_id());
 
     int ans =kthread_join(tid, &status);
-    printf("kthread join ret =%d\n",ans);
+    printf("kthread join ret =%d , my tid =%d\n",ans,kthread_id());
     tid = kthread_id();
     free(stack);
     printf("Finished testing threads, main thread id: %d, %d\n", tid,status);
@@ -290,6 +300,20 @@ void thread_test2(char *s){
     printf("Finished testing threads, main thread id: %d, %d\n", tid,status);
 }
 
+void very_easy_thread_test(char *s){
+    int tid;
+    int status;
+    void* stack = malloc(4000);
+    printf("add of func for new thread : %p\n",&test_thread);
+
+    tid = kthread_create(&test_thread_loop, stack);
+    
+    printf("after create ret tid= %d mytid= %d\n",tid,kthread_id());
+
+    free(stack);
+    printf("Finished testing threads, main thread id: %d\n", kthread_id());
+    kthread_exit(0);
+}
 
 int main(){
     // printf("-----------------------------test_sigkill-----------------------------\n");
@@ -310,8 +334,8 @@ int main(){
     printf("-----------------------------thread_test-----------------------------\n");
     thread_test("fuck");
 
-    // printf("-----------------------------thread_test2-----------------------------\n");
-    // thread_test2("fuck");
+    // printf("-----------------------------very easy thread test-----------------------------\n");
+    // very_easy_thread_test("ff");
 
     exit(0);
     return 0;

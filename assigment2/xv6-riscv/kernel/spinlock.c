@@ -22,7 +22,7 @@ void
 acquire(struct spinlock *lk){
   push_off(); // disable interrupts to avoid deadlock.
   if(holding(lk)){
-    printf("pid=%d tried to lock when already holding\n",lk->cpu->proc->pid);//TODO delete
+    printf("pid=%d tid=%d tried to lock when already holding\n",lk->cpu->proc->pid,mykthread()->tid);//TODO delete
     panic("acquire");
 
   }

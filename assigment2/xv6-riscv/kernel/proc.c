@@ -499,10 +499,13 @@ kthread_exit(int status){
   wakeup(t);
 
   if(curr_active_threads==0){
+    // printf("in kthead exit tid=%d  exiting procces\n",t->tid);
     release(&t->lock);
     exit_proccess(status);
   }
   else{
+    // printf("in kthead exit tid=%d  exiting thread\n",t->tid);
+
     // jump to sched and do not return
     sched();
     panic("zombie thread exit");
@@ -652,7 +655,7 @@ scheduler(void)
         for(t=p->kthreads; t<&p->kthreads[NTHREAD];t++){
           acquire(&t->lock);
           if(t->state == TRUNNABLE && !t->frozen) {
-            // printf("scheduler() found runable pid= %d tid= %d\n",p->pid,t->tid);
+            // printf("scheduler() tid= %d running\n",t->tid);
 
             // Switch to chosen process.  It is the process's job
             // to release its lock and then reacquire it
@@ -754,7 +757,6 @@ yield(void)
 void
 forkret(void)
 {
-  printf("shity child at forkret tid= %d\n",mykthread()->tid);
   // static variables initialized only once
   static int first = 1;
 
@@ -762,7 +764,6 @@ forkret(void)
   // release(&myproc()->lock);
 
   release(&mykthread()->lock);    // TODO: check if this change is good
-  printf("after release in forkret tid= %d\n",mykthread()->tid);
 
   if (first) {
     // File system initialization must be run in the context of a
@@ -842,7 +843,6 @@ kill(int pid, int signum)
     if(p->pid == pid){
       if(p->state != RUNNABLE){
         release(&p->lock);
-        printf("proc %d was not runnable in kill()\n",p->pid);
         return -1;
       }
       if(p->signal_handlers[signum] == (void*)SIG_IGN){
@@ -1076,29 +1076,21 @@ int kthread_create(void (*start_func)(), void *stack){
     int thread_ind = (int)(other_t - p->kthreads);
 
     if(curr_t != other_t){
-      // printf("trying to lock thread %d in kcreate\n",thread_ind);
       acquire(&other_t->lock);
-      // printf("locked thread %d in kcreate\n",thread_ind);
       if(other_t->state == TUNUSED){
           freethread(other_t);  // free memory in case this thread entry was previously used
-          // printf("freed thread %d in kcreate\n",thread_ind);
           init_thread(other_t);
-          // printf("after init thread %d in kcreate\n",thread_ind);
-          printf("in kthreadcreate startFunc add = %p\n",start_func);
-          // uint64 sp,func;
-          // copyin(p->pagetable, (char *)&func, (uint64)&start_func, sizeof(uint64));
-          // copyin(p->pagetable, (char *)&sp, (uint64)&stack, sizeof(uint64));
-
+          
+          
           *(other_t->trapframe) = *(curr_t->trapframe);
-          other_t->trapframe->sp = (uint64)stack;
+          other_t->trapframe->sp = (uint64)stack + MAX_STACK_SIZE-16;
+
           other_t->trapframe->epc = (uint64)start_func;
           release(&other_t->lock);
-          // printf("trying to lock p in kcreate\n");
           acquire(&p->lock);
           p->active_threads++;
           release(&p->lock);
           other_t->state = TRUNNABLE;
-          printf("making t runable and break tid=%d\n",other_t->tid);
           return other_t->tid;
       }
       release(&other_t->lock);
@@ -1115,20 +1107,18 @@ kthread_join(int thread_id, int* status){
   struct proc *p = myproc();
   struct kthread *t = mykthread();
 
+
+
   if(thread_id == t->tid)
     return -1;
-  printf("%d: lock wait\n",t->tid);
+
   acquire(&wait_lock);
-  // printf("acq wait lock\n");
   // Search for thread in the procces threads array
   for(nt = p->kthreads;nt < &p->kthreads[NTHREAD];nt++){
-    printf("%d:locking thread %d\n",t->tid,nt->tid);
     if(nt != t){
       acquire(&nt->lock);
-      // printf("nt->tid %d lock acq\n",nt->tid);
 
       if(nt->tid == thread_id){
-        printf("%d: found target\n",t->tid);
         //found target thread 
         break;
       }
@@ -1137,7 +1127,7 @@ kthread_join(int thread_id, int* status){
   }
 
   if(nt->tid != thread_id){
-    printf("failed to find target\n");
+    // printf("thread %d failed to find target %d\n",t->tid,thread_id);
     release(&wait_lock);
     return -1;
   }
@@ -1146,26 +1136,19 @@ kthread_join(int thread_id, int* status){
   // still holding nt lock
   for(;;){
       if(nt->state==TUNUSED){
-        printf("%d: 27 thread unused yey\n",t->tid);
         if(status != 0 && copyout(p->pagetable, status, (char *)&nt->xstate,sizeof(nt->xstate)) < 0) {
-          printf("problem with copyout, releasing locks\n");
            release(&nt->lock);
            release(&wait_lock);
            return -1;                   
         }
-        printf("27 after if all good\n");
 
         freethread(nt);
-        printf("freed nt,releasing locks\n");
         release(&nt->lock);
         release(&wait_lock);  //  successfull join
-        printf("27.5 released wait lock\n");
-        printf("27.75 trapframe->epc=%p\n",t->trapframe->epc);
-        printf("27.824 t tid=%d\n",t->tid);
+       
 
         return 0;
       }
-    printf("28 \n");
 
     // Check if thread allready terminated and his place was taken by a new thread
     if(t->killed || nt->tid!=thread_id){
@@ -1174,11 +1157,8 @@ kthread_join(int thread_id, int* status){
       return -1;
     }
     release(&nt->lock);
-    printf("29 before sleep\n");
-
     sleep(nt, &wait_lock);  //DOC: wait-sleep
     acquire(&nt->lock);
-    printf("30 after acq\n");
   }
 }
 
@@ -1196,4 +1176,19 @@ kthread_join_all(){
   }
 
   return res;
+}
+
+
+void 
+printTF(struct kthread *t){//function for debuging, TODO delete
+  printf("**************tid=%d*****************\n",t->tid);
+  // printf("t->tf->epc = %p\n",t->trapframe->epc);
+  // printf("t->tf->ra = %p\n",t->trapframe->ra);
+  // printf("t->tf->kernel_sp = %p\n",t->trapframe->kernel_sp);
+  printf("t->kstack = %p\n",t->kstack);
+  printf("t->context = %p\n",t->context);
+  printf("t->tf->sp = %p\n",t->trapframe->sp);
+  printf("t->state = %d\n",t->state);
+  printf("**************************************\n",t->tid);
+
 }

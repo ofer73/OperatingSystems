@@ -9,6 +9,7 @@
 extern void* call_sigret;
 extern void* end_sigret;
 
+
 struct spinlock tickslock;
 uint ticks;
 
@@ -39,6 +40,7 @@ trapinithart(void)
 void
 usertrap(void)
 {
+
   int which_dev = 0;
 
   if((r_sstatus() & SSTATUS_SPP) != 0)
@@ -50,6 +52,7 @@ usertrap(void)
 
   struct proc *p = myproc();
   struct kthread *t = mykthread();
+
   
   // save user program counter.
   t->trapframe->epc = r_sepc();
@@ -127,10 +130,10 @@ check_should_cont(struct proc *p){
 
 void
 handle_stop(struct proc* p){
-  // p->frozen=1;
+
   struct kthread *t;
   struct kthread *curr_t = mykthread();
-  printf("entered handle stop pid %d\n",p->pid);
+
 
   // Make all other threads belong to the same procces freeze 
   for(t = p->kthreads;t<&p->kthreads[NTHREAD];t++){
@@ -141,12 +144,12 @@ handle_stop(struct proc* p){
     }
   }
   int should_cont = check_should_cont(p);
-  // printf("should cont = %d puid = %d\n",should_cont,p->pid);
+  
   while (!(p->pending_signals & (1<<SIGKILL)) && !should_cont ){     
-    // printf("in handle stop, yielding pid=%d \n",p->pid);//TODO delete
+    
     yield();
     should_cont = check_should_cont(p);  
-    // printf("should cont = %d puid = %d\n",should_cont,p->pid);
+    
   }
 
   for(t = p->kthreads;t<&p->kthreads[NTHREAD];t++){
@@ -162,34 +165,34 @@ handle_stop(struct proc* p){
 
 void 
 check_pending_signals(struct proc* p){
-  if(p->pid==4){
-    // printf("son in pending sig\n");
-    if(p->pending_signals & (1<<SIGSTOP))
-      printf("recieved stop sig\n");
-  }
+  // if(p->pid==4){
+    
+  //   if(p->pending_signals & (1<<SIGSTOP))
+  //     printf("recieved stop sig\n");
+  // }
   struct kthread *t= mykthread();
   for(int sig_num=0;sig_num<32;sig_num++){
     if((p->pending_signals & (1<<sig_num))&& !(p->signal_mask&(1<<sig_num))){
-      // printf("at pending pid=%d signum=%d\n",p->pid,sig_num);
+      
       struct sigaction act;
       act.sa_handler = p->signal_handlers[sig_num];
       act.sigmask = p->handlers_sigmasks[sig_num];
 
       if(act.sa_handler == (void*)SIG_DFL){
-        // printf("at handler DFL signum=%d\n",sig_num);
+        
         switch (sig_num)
         {          
           case SIGSTOP:
-            printf("handle stop pid=%d\n",p->pid); //TODO delete
+            
 
             handle_stop(p);
             break;
           case SIGCONT:    
-            printf("handle sigcont pid=%d\n",p->pid); //TODO delete
+            
             // p->frozen = 0;
             break;
           default://case DFL or SIGKILL
-            // printf("pid = %d handeled kill signal",p->pid);//TODO delete
+            
             acquire(&p->lock);
             p->killed = 1;
             release(&p->lock);
@@ -293,25 +296,15 @@ usertrapret(void)
   // switches to the user page table, restores user registers,
   // and switches to user mode with sret.
   uint64 fn = TRAMPOLINE + (userret - trampoline);
-  // if(mytid == 4)
-    // printf("end of usertrap tid= %d\n",mykthread()->tid);
+ 
+ 
   int thread_ind = (int)(t - p->kthreads);
-  struct trapframe *tf = TRAPFRAME;
-  tf += thread_ind;
-  static int print=0;
-   if(mytid == 3 && !print){
-    // printf("thread_ind= %d, tfsize = %p\n",thread_ind,  sizeof(struct trapframe));
-    // printf("addr of tf: %p\n",tf);
-    // printf("addr of tf: %p\n",TRAPFRAME);
-    // printf("addr of &trapframe: %p\n",t->trapframe);
 
-    printf("epc t->trapframe is %p\n",t->trapframe->epc);
-    print =0;
-    printf("fuck\n");
 
-   }
 
-  ((void (*)(uint64,uint64))fn)(tf, satp);
+
+  ((void (*)(uint64,uint64))fn)(TRAPFRAME + (uint64)(thread_ind * sizeof(struct trapframe)), satp);
+
 }
 
 // interrupts and exceptions from kernel code go here via kernelvec,
@@ -412,4 +405,4 @@ devintr()
 //   operand = ~operand;
 //   int pending = p->pending_signals;
 //   p->pending_signals&=pending;
-// }
+// } 
