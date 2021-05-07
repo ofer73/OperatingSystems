@@ -32,6 +32,8 @@ main()
     userinit();      // first user process
     __sync_synchronize();
 
+    initsemaphores(); //init semaphores array
+
     started = 1;
   } else {
     while(started == 0)

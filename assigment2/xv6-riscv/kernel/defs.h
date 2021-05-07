@@ -105,7 +105,7 @@ void            setproc(struct proc*);
 void            sleep(void*, struct spinlock*);
 void            userinit(void);
 int             wait(uint64);
-void            wakeup(void*);
+int             wakeup(void*);
 void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
@@ -135,6 +135,8 @@ void            initlock(struct spinlock*, char*);
 void            release(struct spinlock*);
 void            push_off(void);
 void            pop_off(void);
+
+void            initsemaphores();
 
 // sleeplock.c
 void            acquiresleep(struct sleeplock*);

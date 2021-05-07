@@ -161,7 +161,7 @@ sys_kthread_exit(void){
 }
 
 uint64 
-sys_kthread_join(){
+sys_kthread_join(void){
   int thread_id;
   uint64 status;
   if(argint(0, &thread_id) < 0)
@@ -170,4 +170,40 @@ sys_kthread_join(){
     return -1;
   
   return kthread_join(thread_id, (int *)status);
+}
+
+
+
+
+uint64 
+sys_bsem_alloc(void){
+  return bsem_alloc();
+}
+
+uint64 
+sys_bsem_free(void){
+  int sem;
+  if(argint(0, &sem) < 0)
+    return -1;
+  bsem_free(sem);
+  return 0;
+}
+
+uint64 
+sys_bsem_down(void){
+  int sem;
+  if(argint(0, &sem) < 0)
+    return -1;
+  bsem_down(sem);
+  return 0;
+}
+
+uint64 
+sys_bsem_up(void){
+  int sem;
+  if(argint(0, &sem) < 0)
+    return -1;
+      
+  bsem_up(sem);
+  return 0;
 }

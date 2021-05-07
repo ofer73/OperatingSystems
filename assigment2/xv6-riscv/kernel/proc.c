@@ -823,12 +823,15 @@ sleep(void *chan, struct spinlock *lk)
 
 // Wake up all processes sleeping on chan.
 // Must be called without any p->lock.
-void
+// returns true if someone was waiting, else false
+int
 wakeup(void *chan)
 {
   struct proc *p;
   struct kthread *t;
   struct kthread *my_t = mykthread();
+  int waited = 0;
+
 
   for(p = proc; p < &proc[NPROC]; p++) {
     // acquire(&p->lock);
@@ -838,13 +841,15 @@ wakeup(void *chan)
           acquire(&t->lock);
           if(t->state == TSLEEPING && t->chan == chan) {
             t->state = TRUNNABLE;
+            waited = 1;
           }
           release(&t->lock);
         }
       }
     }
-    // release(&p->lock);
   }
+
+  return waited;
 }
 
 // new kill sending signal to process pid - task 2.2.1

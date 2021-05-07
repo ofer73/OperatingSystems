@@ -7,6 +7,8 @@
 #include "riscv.h"
 #include "proc.h"
 #include "defs.h"
+      
+struct bsemaphore bsemaphores[MAX_BSEM];
 
 void
 initlock(struct spinlock *lk, char *name)
@@ -14,6 +16,17 @@ initlock(struct spinlock *lk, char *name)
   lk->name = name;
   lk->locked = 0;
   lk->cpu = 0;
+}
+
+void
+initsemaphores(){
+  struct bsemaphore *sem;
+  for(sem =bsemaphores; sem<&bsemaphores[MAX_BSEM];sem++){
+    sem->state = SUNUSED;
+    sem->s = 1;
+    sem->waiting = 0;
+    initlock(&sem->s_lock,"lock");
+  }
 }
 
 // Acquire the lock.
@@ -110,3 +123,96 @@ pop_off(void)
   if(c->noff == 0 && c->intena)
     intr_on();
 }
+
+/////////// bsemaphore/////////////// 
+
+// Allocates a new binary semaphore and returns its descriptor(-1 if failure). You are not
+// restricted on the binary semaphore internal structure, but the newly allocated binary
+// semaphore should be in unlocked state.
+int bsem_alloc(){
+  
+  struct bsemaphore *sem;
+  for(sem =bsemaphores; sem<&bsemaphores[MAX_BSEM];sem++){
+    acquire(&sem->s_lock);
+    if(sem->state == SUNUSED)
+      goto found;
+    release(&sem->s_lock);
+  }
+  panic("Semaphore BOMB");
+
+  // found free semaphore
+  found:
+  sem->state=SUSED;
+  sem->s=1;
+  sem->waiting=0;
+  release(&sem->s_lock);
+
+  return (int)(sem - bsemaphores);
+  
+}
+
+// Call the free function with the semaphore down
+void
+bsem_free(int sem_index){
+  if(sem_index<0 || sem_index > MAX_BSEM)
+    panic("fudge you give me bad index in bsem_down");
+
+  struct bsemaphore *bsem = &bsemaphores[sem_index];
+  acquire(&bsem->s_lock);
+  if(bsem->state == SUNUSED ){
+    release(&bsem->s_lock);
+    panic("fack semaphore is not alloced in bsem_down");
+  }
+  if(bsem->waiting > 0)
+    panic("tried to bsem_free when threads are blocked");
+
+  // if(bsem->s == 0)
+  //   panic("tried to free bsem when it is locked!");
+
+  
+  bsem->state = SUNUSED;
+  release(&bsem->s_lock);
+}
+
+// Attempt to acquire (lock) the semaphore, in case that it is already acquired (locked),
+// block the current thread until it is unlocked and then acquire it./
+void
+bsem_down(int sem_index){
+  if(sem_index<0 || sem_index > MAX_BSEM)
+    panic("fudge you give me bad index in bsem_down");
+
+  struct bsemaphore *bsem = &bsemaphores[sem_index];
+  acquire(&bsem->s_lock);
+  if(bsem->state == SUNUSED ){
+    release(&bsem->s_lock);
+    panic("fack semaphore is not alloced in bsem_down");
+  }
+
+  bsem->waiting++;
+  while(bsem->s == 0){// sleep until semaphore is unlocked
+    sleep(bsem, &bsem->s_lock);
+  }
+  bsem->waiting--;
+
+  bsem->s = 0;
+  release(&bsem->s_lock);
+}
+
+void bsem_up(int sem_index){
+  if(sem_index<0 || sem_index > MAX_BSEM)
+    panic("fudge you give me bad index in bsem_down");
+
+  struct bsemaphore *bsem = &bsemaphores[sem_index];
+  acquire(&bsem->s_lock);
+  if(bsem->state == SUNUSED ){
+    release(&bsem->s_lock);
+    panic("fack semaphore is not alloced in bsem_down");
+  }
+  bsem->s++;
+
+  if(bsem->waiting > 0)
+    wakeup(bsem);
+  
+  release(&bsem->s_lock);
+}
+

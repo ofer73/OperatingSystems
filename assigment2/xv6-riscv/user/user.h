@@ -36,6 +36,12 @@ int kthread_id();
 void kthread_exit(int status);
 int kthread_join(int thread_id, int* status);
 
+// semaphore system calls
+int bsem_alloc();
+void bsem_free(int);
+void bsem_down(int);
+void bsem_up(int);
+
 // ulib.c
 int stat(const char*, struct stat*);
 char* strcpy(char*, const char*);
@@ -59,3 +65,7 @@ void *memcpy(void *, const void *, uint);
 #define SIGKILL 9
 #define SIGSTOP 17
 #define SIGCONT 19
+#define MAX_STACK_SIZE 4000
+#define STACK_SIZE 4000
+
+

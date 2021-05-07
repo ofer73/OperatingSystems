@@ -7,6 +7,7 @@
 #include "../kernel/syscall.h"
 #include "../kernel/memlayout.h"
 #include "../kernel/riscv.h"
+#include "Csemaphore.h"
 
 struct sigaction {
   void (*sa_handler) (int);
@@ -251,7 +252,7 @@ test_user_handler_kill(){
     if(pid==0){
         int ret=sigaction(3,&act,&oldact);
         if(ret <0 ){
-            printf("sigaction FAILED");
+            printf("sigaction FAILED\n");
             exit(-1);
         }
 
@@ -270,53 +271,37 @@ test_user_handler_kill(){
     }
 }
 
-//TODO delete func
-void thread_test(char *s){
-    int tid;
-    int status;
-    void* stack = malloc(4000);
-    printf("father tid is = %d\n",kthread_id());
-    tid = kthread_create(test_thread, stack);
-    printf("child tid %d",tid);
-    printf("father tid is = %d\n",kthread_id());
-
-    int ans =kthread_join(tid, &status);
-    printf("kthread join ret =%d , my tid =%d\n",ans,kthread_id());
-    tid = kthread_id();
-    free(stack);
-    printf("Finished testing threads, main thread id: %d, %d\n", tid,status);
-}
-void thread_test2(char *s){
-    int tid;
-    void* stack = malloc(4000);
-    printf("after malloc\n");
-    printf("add of func for new thread : %p\n",&test_thread);
-    printf("add of func for new thread : %p\n",&test_thread2);
-
-    tid = kthread_create(&test_thread2, stack);
+void Csem_test(char *s){
+	struct counting_semaphore csem;
+    int retval;
+    int pid;
     
-    printf("after create %d \n",tid);
-
+    
+    retval = csem_alloc(&csem,1);
+    if(retval==-1)
+    {
+		printf("failed csem alloc\n");
+		exit(-1);
+	}
+    csem_down(&csem);
+    printf("1. Parent downing semaphore\n");
+    if((pid = fork()) == 0){
+        printf("2. Child downing semaphore\n");
+        csem_down(&csem);
+        printf("4. Child woke up\n");
+        exit(0);
+    }
     sleep(5);
-    printf("after kthread\n");
-    tid = kthread_id();
-    free(stack);
-    printf("Finished testing threads, main thread id: %d\n", tid);
+    printf("3. Let the child wait on the semaphore...\n");
+    sleep(10);
+    csem_up(&csem);
+    csem_free(&csem);
+    wait(&pid);
+
+    printf("Finished bsem test, make sure that the order of the prints is alright. Meaning (1...2...3...4)\n");
 }
 
-void very_easy_thread_test(char *s){
-    int tid;
-    void* stack = malloc(4000);
-    printf("add of func for new thread : %p\n",&test_thread);
 
-    tid = kthread_create(&test_thread_loop, stack);
-    
-    printf("after create ret tid= %d mytid= %d\n",tid,kthread_id());
-
-    free(stack);
-    printf("Finished testing threads, main thread id: %d\n", kthread_id());
-    kthread_exit(0);
-}
 
 int main(){
     // printf("-----------------------------test_sigkill-----------------------------\n");
@@ -334,13 +319,8 @@ int main(){
     // printf("-----------------------------test_user_handler_then_kill-----------------------------\n");
     // test_user_handler_kill();
 
-    // printf("-----------------------------thread_test-----------------------------\n");
-    // thread_test("fuck");
-
-    // printf("-----------------------------very easy thread test-----------------------------\n");
-    // very_easy_thread_test("ff");
-
-
+    printf("-----------------------------Csem_test-----------------------------\n");
+    Csem_test("a");
    
 
     exit(0);
