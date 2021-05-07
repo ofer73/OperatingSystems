@@ -123,7 +123,7 @@ sys_sigaction(void)
   if(argaddr(2, &oldact) < 0)
     return -1;
 
-  return sigaction(signum,newact,oldact);
+  return sigaction(signum,(struct sigaction*)newact, (struct sigaction*)oldact);
   
 }
 uint64
@@ -140,9 +140,9 @@ sys_kthread_create(void)
   uint64 stack;
   if(argaddr(0, &start_func) < 0)
     return -1;
-  if(argaddr(1, &stack) < 0)
+  if(argaddr(1, &stack) < 0) 
     return -1;
-  kthread_create(start_func,stack);
+  return kthread_create((void*)start_func, (void *)stack);
 }
 
 uint64
@@ -169,5 +169,5 @@ sys_kthread_join(){
   if(argaddr(1, &status) < 0)
     return -1;
   
-  return kthread_join(thread_id, status);
+  return kthread_join(thread_id, (int *)status);
 }

@@ -117,7 +117,7 @@ usertrap(void)
 int 
 check_should_cont(struct proc *p){
   for(int i=0;i<32;i++){
-      if((p->pending_signals & (1 << i)) && !(p->signal_mask & (1 << i)) && ((p->signal_handlers[i] == SIGCONT) || 
+      if((p->pending_signals & (1 << i)) && !(p->signal_mask & (1 << i)) && (((uint64)p->signal_handlers[i] == SIGCONT) || 
           (i == SIGCONT && p->signal_handlers[i] == SIG_DFL))){
         turn_off_bit(p, i);
         return 1;
@@ -208,7 +208,6 @@ check_pending_signals(struct proc* p){
         // Its a user signal handler
 
 
-        int original_mask = p->signal_mask;
         // handle_user_signal(p, sig_num);
 
         p->handling_user_sig_flag = 1;
@@ -255,7 +254,6 @@ usertrapret(void)
 {
   struct proc *p = myproc();
   struct kthread *t = mykthread();
-  int mytid = mykthread()->tid;
   // we're about to switch the destination of traps from
   // kerneltrap() to usertrap(), so turn off interrupts until
   // we're back in user space, where usertrap() is correct.

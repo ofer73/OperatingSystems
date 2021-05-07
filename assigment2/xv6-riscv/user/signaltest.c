@@ -104,7 +104,7 @@ test_usersig(){
     int signum1=3;
     if(pid==0){
         struct sigaction act;
-        struct sigaction act2;
+        // struct sigaction act2;
 
         printf("sighandler= %p\n",&sig_handler2);
         uint mask = 0;
@@ -250,6 +250,11 @@ test_user_handler_kill(){
     int i;
     if(pid==0){
         int ret=sigaction(3,&act,&oldact);
+        if(ret <0 ){
+            printf("sigaction FAILED");
+            exit(-1);
+        }
+
         for(i=0;i<500;i++)
             printf("out-side handler %d\n ", i);
         exit(0);
@@ -283,7 +288,6 @@ void thread_test(char *s){
 }
 void thread_test2(char *s){
     int tid;
-    int status;
     void* stack = malloc(4000);
     printf("after malloc\n");
     printf("add of func for new thread : %p\n",&test_thread);
@@ -297,12 +301,11 @@ void thread_test2(char *s){
     printf("after kthread\n");
     tid = kthread_id();
     free(stack);
-    printf("Finished testing threads, main thread id: %d, %d\n", tid,status);
+    printf("Finished testing threads, main thread id: %d\n", tid);
 }
 
 void very_easy_thread_test(char *s){
     int tid;
-    int status;
     void* stack = malloc(4000);
     printf("add of func for new thread : %p\n",&test_thread);
 
@@ -313,34 +316,6 @@ void very_easy_thread_test(char *s){
     free(stack);
     printf("Finished testing threads, main thread id: %d\n", kthread_id());
     kthread_exit(0);
-}
-
-
-void
-reparent(char *s)
-{
-  int master_pid = getpid();
-  for(int i = 0; i < 200; i++){
-    int pid = fork();
-    if(pid < 0){
-      printf("%s: fork failed\n", s);
-      exit(1);
-    }
-    if(pid){
-      if(wait(0) != pid){
-        printf("%s: wait wrong pid\n", s);
-        exit(1);
-      }
-    } else {
-      int pid2 = fork();
-      if(pid2 < 0){
-        // kill(master_pid, SIGKILL);
-        exit(1);
-      }
-      exit(0);
-    }
-  }
-  exit(0);
 }
 
 int main(){
@@ -366,8 +341,7 @@ int main(){
     // very_easy_thread_test("ff");
 
 
-    printf("-----------------------------reparent test-----------------------------\n");
-    reparent("ff");
+   
 
     exit(0);
     return 0;

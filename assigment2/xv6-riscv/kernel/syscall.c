@@ -34,7 +34,7 @@ fetchstr(uint64 addr, char *buf, int max)
 static uint64
 argraw(int n)
 {
-  struct proc *p = myproc();
+
   struct kthread *t = mykthread();
   switch (n) {
   case 0:
