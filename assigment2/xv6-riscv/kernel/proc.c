@@ -20,6 +20,7 @@ struct spinlock tid_lock;
 
 extern void forkret(void);
 static void freeproc(struct proc *p);
+//
 
 extern char trampoline[]; // trampoline.S
 
@@ -262,7 +263,7 @@ freeproc(struct proc *p)
   struct kthread *t;
   for(t = p->kthreads; t < &(p->kthreads[NTHREAD]); t++){
     acquire(&t->lock);
-    if(t->state != TUNUSED)
+    // if(t->state != TUNUSED)//changed 15:50
       freethread(t);
     release(&t->lock);
   }
@@ -460,10 +461,17 @@ fork(void)
   acquire(&np->lock);
   // acquire(&np_first_thread->lock); ////////////////////////////////////////////////////////////////check
 
+  int proc_index= (int)(np-proc);//TODO delete
+  int my_proc_index= (int)(p-proc);// TODO delete
+
+  printf("%d:at fork idx%d->runable\n",my_proc_index,proc_index);//TODO delete
+
   np->state = RUNNABLE;   //TOOD: check if we still need this state or should change
   np_first_thread->state = TRUNNABLE;
   release(&np_first_thread->lock);
   release(&np->lock);
+
+
 
   return pid;
 }
@@ -488,32 +496,32 @@ void
 kthread_exit(int status){
   struct proc *p = myproc(); 
   struct kthread *t=mykthread();
-  printf("kte-a%d\n",p->pid);//TODO delete
+  // printf("kte-a%d\n",p->pid);//TODO delete
   int curr_active_threads; 
   acquire(&p->lock);
   p->active_threads--;
   curr_active_threads=p->active_threads;
   release(&p->lock);
-  printf("kte-b%d\n",p->pid);//TODO delete
+  // printf("kte-b%d\n",p->pid);//TODO delete
 
   acquire(&t->lock);
   t->xstate = status;
-  t->state  = TUNUSED;
-    printf("kte-c%d\n",p->pid);//TODO delete
+  t->state  = TZOMBIE;
+    // printf("kte-c%d\n",p->pid);//TODO delete
   release(&t->lock);////////////////////////////////////////////////////////check
   wakeup(t);
-  printf("kte-d%d\n",p->pid);//TODO delete
+  // printf("kte-d%d\n",p->pid);//TODO delete
 
   if(curr_active_threads==0){
     // printf("in kthead exit tid=%d  exiting procces\n",t->tid);
-      printf("%d: at kt exit 0t\n",p->pid);
+      // printf("%d: at kt exit 0t\n",p->pid);
 
     // release(&t->lock);////////////////////////////////////////////////////////check
     exit_proccess(status);
   }
   else{
     acquire(&t->lock);////////////////////////////////////////////////////////check
-    printf("kte-er%d\n",p->pid);//TODO delete
+    // printf("kte-er%d\n",p->pid);//TODO delete
     // jump to sched and do not return
     sched();
     panic("zombie thread exit");
@@ -532,7 +540,7 @@ exit(int status){
 
   struct proc *p = myproc();
   struct kthread *t = mykthread();
-  printf("e%d\n",p->pid);//TODO delete
+  // printf("e%d\n",p->pid);//TODO delete
   for(t=p->kthreads; t<&p->kthreads[NTHREAD];t++){
     acquire(&t->lock);
     t->killed = 1;
@@ -549,7 +557,9 @@ exit_proccess(int status)
 {
   struct proc *p = myproc();
   struct kthread *t = mykthread();
-  printf("%d: at e_proc\n",p->pid);
+
+  int proc_index= (int)(p-proc);// TODO delete
+  printf("%d dx: at e_proc\n",proc_index);// TODO delete
 
   if(p == initproc)
     panic("init exiting");
@@ -562,34 +572,38 @@ exit_proccess(int status)
       p->ofile[fd] = 0;
     }
   }
-
+  printf("%d dx: at e_proc_b\n",proc_index);// TODO delete
   begin_op();
   iput(p->cwd);
   end_op();
   p->cwd = 0;
-  printf("ep-b%d\n",p->pid);//TODO delete
+  // printf("ep-b%d\n",p->pid);//TODO delete
   acquire(&wait_lock);
-  printf("ep-a%d\n",p->pid);//TODO delete
+  // printf("ep-a%d\n",p->pid);//TODO delete
+  printf("%d dx: at e_proc_c\n",proc_index);// TODO delete
   // Give any children to init.
   reparent(p);
-
+  printf("%d dx: at e_proc_d\n",proc_index);// TODO delete
   // Parent might be sleeping in wait().
   wakeup(p->parent);
-  
+  printf("%d dx: at e_proc_e\n",proc_index);// TODO delete
   acquire(&p->lock);
-
+  printf("%d dx: at e_proc_f\n",proc_index);// TODO delete
   p->xstate = status;
   p->state = ZOMBIE;
-
-  release(&p->lock);// we added
+  t->state=TZOMBIE;
+  // release(&p->lock);// haya po mikodem :{ XD
 
   release(&wait_lock);
 
   // acquire thread lock before sched
   acquire(&t->lock);
+  release(&p->lock);// ze po achav :) 
+  printf("%d dx: at e_proc_g\n",proc_index);// TODO delete
+
   // Jump into the scheduler, never to return.
   sched();
-  printf("zombie exit %d\n",p->pid);
+  printf("zombie exit %d\n",proc_index);
   panic("zombie exit");
 }
 
@@ -666,12 +680,14 @@ scheduler(void)
 
     for(p = proc; p < &proc[NPROC]; p++) {
       if(p->state == RUNNABLE) {
+        
         // A runnable proccess is a proccess that may have runable threads
         for(t=p->kthreads; t<&p->kthreads[NTHREAD];t++){
           acquire(&t->lock);
           if(t->state == TRUNNABLE && !t->frozen) {
             // printf("scheduler() tid= %d running\n",t->tid);
-            printf("%d\n",p->pid);
+            int proc_index= (int)(p-proc);// TODO delete
+            printf("%d\n",proc_index);
 
 
             // Switch to chosen process.  It is the process's job
@@ -717,12 +733,14 @@ sched(void)
   //   panic("sched running");
   // if(intr_get())
   //   panic("sched interruptible");
+              int proc_index= (int)(p-proc);// TODO delete
+
   if(!holding(&t->lock))
     panic("sched t->lock");
   if(mycpu()->noff != 1)
     panic("sched locks");
   if(t->state == TRUNNING){
-    printf("sched%d\n",p->pid);
+    printf("sched%d\n",proc_index);
     panic("sched running");
   }
   if(intr_get())
@@ -791,7 +809,7 @@ forkret(void)
     first = 0;
     fsinit(ROOTDEV);
   }
-  printf("ffret%d\n",myproc()->pid);//TODO delete
+  // printf("ffret%d\n",myproc()->pid);//TODO delete
 
 
   usertrapret();
@@ -813,7 +831,7 @@ sleep(void *chan, struct spinlock *lk)
   // so it's okay to release lk.
   acquire(&t->lock);  //DOC: sleeplock1
   release(lk);
-  printf("sl-s%d\n",p->pid);//TODO delete
+  // printf("sl-s%d\n",p->pid);//TODO delete
   // Go to sleep.
   t->chan = chan;
   t->state = TSLEEPING;
@@ -825,7 +843,7 @@ sleep(void *chan, struct spinlock *lk)
 
   // Reacquire original lock.
   release(&t->lock);
-  printf("sl-e%d\n",p->pid);//TODO delete
+  // printf("sl-e%d\n",p->pid);//TODO delete
   acquire(lk);
 }
 
@@ -839,6 +857,7 @@ wakeup(void *chan)
   struct kthread *my_t = mykthread();
 
   for(p = proc; p < &proc[NPROC]; p++) {
+    // acquire(&p->lock);
     if(p->state == RUNNABLE){
       for(t = p->kthreads;t<&p->kthreads[NTHREAD];t++){
         if(t != my_t){
@@ -850,6 +869,7 @@ wakeup(void *chan)
         }
       }
     }
+    // release(&p->lock);
   }
 }
 
@@ -1140,7 +1160,7 @@ kthread_join(int thread_id, int* status){
 
       if(nt->tid == thread_id){
         //found target thread 
-        break;
+        goto found;
       }
       release(&nt->lock);
     }
@@ -1151,23 +1171,28 @@ kthread_join(int thread_id, int* status){
     release(&wait_lock);
     return -1;
   }
-  
+  found:
+  // printf("%d:join to %d\n",p->pid,thread_id);  // TODO delete
   // Wait for thread to terminate
   // still holding nt lock
   for(;;){
-      if(nt->state==TUNUSED){
+      if(nt->state==TZOMBIE){
         if(status != 0 && copyout(p->pagetable, status, (char *)&nt->xstate,sizeof(nt->xstate)) < 0) {
            release(&nt->lock);
            release(&wait_lock);
            return -1;                   
         }
-
-        freethread(nt);
+        freethread(nt);       //make the thread UNUSED again
+        release(&nt->lock);
+        release(&wait_lock);  //  successfull join     
+        return 0;
+      }
+      // No point waiting if thread isn't running
+      else if(nt->state==TUNUSED){ // in case someone already free that thread
+        freethread(nt);       
         release(&nt->lock);
         release(&wait_lock);  //  successfull join
-       
-
-        return 0;
+        return 1; //thread already exited
       }
 
     // Check if thread allready terminated and his place was taken by a new thread
@@ -1190,7 +1215,6 @@ kthread_join_all(){
   int res = 1;
   for(nt = p->kthreads; nt < &p->kthreads[NTHREAD]; nt++){
     if(nt != t){
-      int thread_index = (int)(nt - p->kthreads);
       res &= kthread_join(nt->tid,0);
     }
   }

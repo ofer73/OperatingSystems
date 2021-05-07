@@ -98,7 +98,7 @@ struct trapframe {
 };
 
 enum procstate { UNUSED, USED, RUNNABLE, ZOMBIE };
-enum kthreadstate {TUNUSED, TUSED, TSLEEPING, TRUNNABLE, TRUNNING};
+enum kthreadstate {TUNUSED, TUSED, TSLEEPING, TRUNNABLE, TRUNNING , TZOMBIE};
 
 
 struct kthread

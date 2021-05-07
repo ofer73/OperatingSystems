@@ -320,7 +320,6 @@ void
 reparent(char *s)
 {
   int master_pid = getpid();
-  printf("master id = %d\n",master_pid);
   for(int i = 0; i < 200; i++){
     int pid = fork();
     if(pid < 0){
@@ -328,19 +327,16 @@ reparent(char *s)
       exit(1);
     }
     if(pid){
-    //   printf("1\n");//TODO delete
-
       if(wait(0) != pid){
         printf("%s: wait wrong pid\n", s);
         exit(1);
       }
     } else {
       int pid2 = fork();
-      
-        // if(pid2)
-        //     wait(0);
-
-        
+      if(pid2 < 0){
+        // kill(master_pid, SIGKILL);
+        exit(1);
+      }
       exit(0);
     }
   }

@@ -14,7 +14,7 @@ char *argv[] = { "sh", 0 };
 int
 main(void)
 {
-  printf("at shell start\n");//TODO delete
+  // printf("at shell start\n");//TODO delete
   int pid, wpid;
 
   if(open("console", O_RDWR) < 0){
