@@ -7,6 +7,7 @@
 #include "../kernel/syscall.h"
 #include "../kernel/memlayout.h"
 #include "../kernel/riscv.h"
+#include "Csemaphore.h"
 
 struct sigaction {
   void (*sa_handler) (int);
@@ -17,6 +18,29 @@ void test_sigkill();
 void sig_handler(int);
 void test_stop_cont();
 void sig_handler_loop(int);
+void sig_handler_loop2(int);
+void test_thread();
+void test_thread2();
+void test_thread_loop();
+
+
+void test_thread(){
+    sleep(5);
+    printf("Thread is now running tid=%d\n",kthread_id());
+    kthread_exit(9);
+}
+void test_thread_loop(){
+    sleep(5);
+    for(int i=0;i<100;i++){
+        printf("%d:Thread is now running tid=%d\n",i,kthread_id());
+    }
+    kthread_exit(9);
+}
+void test_thread2(){
+    sleep(5);
+    printf("Thread is now running tid=%d\n",kthread_id());
+    kthread_exit(9);
+}
 
 
 void 
@@ -24,7 +48,7 @@ test_sigkill(){//
    int pid = fork();
     if(pid==0){
         sleep(5);
-        for(int i=0;i<300;i++)
+        for(int i=0;i<100;i++)
             printf("about to get killed %d\n",i);
         // exit(0);
     }
@@ -36,7 +60,7 @@ test_sigkill(){//
         wait(0);
         printf("parent: child is dead\n");
         sleep(10);
-        exit(0);
+        return;
     }
 }
 
@@ -53,7 +77,16 @@ void
 sig_handler_loop(int signum){
     char st[5] = "dap\n";
     for(int i=0;i<500;i++){
-        // write(1,i,sizeof(int));
+        write(1, st, 5);
+    }
+    
+    return;
+}
+void
+sig_handler_loop2(int signum){
+    char st[5] = "dap\n";
+    for(int i=0;i<100;i++){
+        sleep(1);
         write(1, st, 5);
     }
     
@@ -73,29 +106,28 @@ test_usersig(){
     int signum1=3;
     if(pid==0){
         struct sigaction act;
-        struct sigaction act2;
+        // struct sigaction act2;
 
-        printf("sighandler= %p\n",&sig_handler);
         printf("sighandler= %p\n",&sig_handler2);
         uint mask = 0;
         mask ^= (1<<22);
 
         act.sa_handler = &sig_handler2;
         act.sigmask = mask;
-        // act2.sa_handler = &sig_handler2;
-        // act2.sigmask = mask;
+        
 
         struct sigaction oldact;
         oldact.sigmask=0;
         oldact.sa_handler=0;
         int ret=sigaction(signum1,&act,&oldact);
-        // int ret2=sigaction(3,&act2,&oldact);
         printf("old act->sa handler= %p, mask=%d\n",oldact.sa_handler,oldact.sigmask);
         printf("child return from sigaction = %d\n",ret);
         sleep(10);
         for(int i=0;i<10;i++){
             printf("child doing stuff before exit \n");
         }
+        ret=sigaction(signum1,&act,&oldact);
+        printf("oldact should be the same as new act before \n oldact->mask=%d \t oldact->sa_handler=%p \n",oldact.sigmask,oldact.sa_handler);
 
         exit(0);
 
@@ -106,7 +138,6 @@ test_usersig(){
         // printf("parent send sig 4 to child ret=%d\n",kill(pid,4));
 
         wait(0);
-        exit(0);
     }
 }
 void 
@@ -122,17 +153,22 @@ test_block(){//parent block 22 child block 23
         // ans=sigprocmask(1<<signum2);
         // printf("child got %d from calling to sigprocmask\n",ans);
         sleep(3);
-        for(int i=0;i<100;i++){
-            printf("child blocking signal %d :-)\n",i);
+        for(int i=0;i<1000;i++){
+            sleep(1);
+            printf("child blocking signal %d \n",i);
         }
         exit(0);
 
     }else{
         sleep(1);//wait for child to block sig
-        kill(pid,signum1);
         printf("parent: sent signal 22 to child ->child shuld block\n");
-        // kill(pid,signum2);
-        printf("parent: sent signal 23 to child ->child shuld block\n");
+        for(int i=0; i<10;i++){
+            kill(pid,signum1);
+        }
+        sleep(10);
+        kill(pid,signum2);
+
+        printf("parent: sent signal 23 to child ->child shuld die\n");
         wait(0);
     }
     // exit(0);
@@ -144,20 +180,21 @@ test_stop_cont(){
     int i;
     if(pid==0){
         sleep(2);
-        for(i=0;i<500;i++)
+        for(i=0;i<500;i++){
             printf("%d\n ", i);
+        }
         exit(0);
     }else{
-        printf("son pid=%d, dad pid=%d\n",pid, getpid());
+        printf("son pid=%d, dad pid=%d\n", pid, getpid());
         sleep(5);
-        printf("parent send stop ret= %d\n",kill(pid, SIGSTOP));
+        printf("parent send stop ret= %d\n", kill(pid, SIGSTOP));
         sleep(50);
-        printf("parent send continue ret= %d\n",kill(pid, SIGCONT));
+        printf("parent send continue ret= %d\n", kill(pid, SIGCONT));
         wait(0);
         // for(int i=0;i<100;i++)
         //  printf("parent..");
         sleep(10);
-        exit(0);
+        return;
     }
 }
 
@@ -178,7 +215,7 @@ test_ignore(){
         
         sleep(6);
         for(int i=0;i<300;i++){
-            printf("child ignoring signal :-)\n");
+            printf("child ignoring signal %d\n",i);
         }
         exit(0);
 
@@ -187,43 +224,49 @@ test_ignore(){
         sleep(5);
         kill(pid,signum);
         wait(0);
-
     }
 }
 void
-test_stop_stop_kill(){
+test_user_handler_kill(){
     struct sigaction act;
 
-    printf("sighandler= %p\n",&sig_handler_loop);
+    printf("sighandler1= %p\n", &sig_handler_loop);
+    printf("sighandler2= %p\n", &sig_handler_loop2);
+
+
     uint mask = 0;
     mask ^= (1<<22);
 
     act.sigmask = mask;
-    act.sa_handler=&sig_handler_loop;
-
+    
     struct sigaction oldact;
     oldact.sigmask=0;
     oldact.sa_handler=0;
     
+    act.sa_handler=&sig_handler_loop2;
 
 
     int pid = fork();
-    int i;
     if(pid==0){
         int ret=sigaction(3,&act,&oldact);
-        for(i=0;i<500;i++)
+        if(ret <0 ){
+            printf("sigaction FAILED\n");
+            exit(-1);
+        }
+
+        for(int i=0; i<100; i++){
+            sleep(1);
             printf("out-side handler %d\n ", i);
+        }
         exit(0);
     }else{
         printf("son pid=%d, dad pid=%d\n",pid, getpid());
         sleep(5);
         printf("parent send loop ret= %d\n",kill(pid, 3));
-        sleep(1);
+        sleep(20);
         printf("parent send kill ret= %d\n",kill(pid, SIGKILL));
-        // kill(pid,SIGKILL);
         wait(0);
         printf("parent exiting\n");
-        exit(0);
     }
 }
 
@@ -241,10 +284,12 @@ int main(){
     // test_block();
     // printf("-----------------------------test_ignore-----------------------------\n");
     // test_ignore();
-    printf("-----------------------------test_stop_stop_kill-----------------------------\n");
-    test_stop_stop_kill();
+    printf("-----------------------------test_user_handler_then_kill-----------------------------\n");
+    test_user_handler_kill();
 
 
+  
+   
 
     exit(0);
     return 0;

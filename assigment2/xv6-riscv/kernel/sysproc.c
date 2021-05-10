@@ -123,12 +123,87 @@ sys_sigaction(void)
   if(argaddr(2, &oldact) < 0)
     return -1;
 
-  return sigaction(signum,newact,oldact);
+  return sigaction(signum,(struct sigaction*)newact, (struct sigaction*)oldact);
   
 }
 uint64
 sys_sigret(void)
 {
   sigret();
+  return 0;
+}
+
+uint64
+sys_kthread_create(void)
+{
+  uint64 start_func;
+  uint64 stack;
+  if(argaddr(0, &start_func) < 0)
+    return -1;
+  if(argaddr(1, &stack) < 0) 
+    return -1;
+  return kthread_create((void*)start_func, (void *)stack);
+}
+
+uint64
+sys_kthread_id(void){
+  return mykthread()->tid;
+}
+
+uint64
+sys_kthread_exit(void){
+  int n;
+  if(argint(0, &n) < 0)
+    return -1;
+  kthread_exit(n);
+  
+  return 0;  // not reached
+}
+
+uint64 
+sys_kthread_join(void){
+  int thread_id;
+  uint64 status;
+  if(argint(0, &thread_id) < 0)
+    return -1;
+  if(argaddr(1, &status) < 0)
+    return -1;
+  
+  return kthread_join(thread_id, (int *)status);
+}
+
+
+
+
+uint64 
+sys_bsem_alloc(void){
+  return bsem_alloc();
+}
+
+uint64 
+sys_bsem_free(void){
+  int sem;
+  if(argint(0, &sem) < 0)
+    return -1;
+  bsem_free(sem);
+  return 0;
+}
+
+uint64 
+sys_bsem_down(void){
+  int sem;
+  if(argint(0, &sem) < 0)
+    return -1;
+  bsem_down(sem);
+  return 0;
+}
+
+uint64 
+sys_bsem_up(void){
+  int sem;
+  if(argint(0, &sem) < 0)
+    return -1;
+      
+  bsem_up(sem);
   return 0;
 }

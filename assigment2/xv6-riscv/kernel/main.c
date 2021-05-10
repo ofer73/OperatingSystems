@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "defs.h"
 
+ 
 volatile static int started = 0;
 
 // start() jumps here in supervisor mode on all CPUs.
@@ -30,6 +31,9 @@ main()
     virtio_disk_init(); // emulated hard disk
     userinit();      // first user process
     __sync_synchronize();
+
+    initsemaphores(); //init semaphores array
+
     started = 1;
   } else {
     while(started == 0)
@@ -38,6 +42,7 @@ main()
     printf("hart %d starting\n", cpuid());
     kvminithart();    // turn on paging
     trapinithart();   // install kernel trap vector
+
     plicinithart();   // ask PLIC for device interrupts
   }
 

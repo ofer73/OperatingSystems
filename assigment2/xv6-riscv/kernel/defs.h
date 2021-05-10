@@ -83,9 +83,11 @@ void            printf(char*, ...);
 void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
 
+
+
 // proc.c
 int             cpuid(void);
-void            exit(int);
+void            exit(int);//
 int             fork(void);
 int             growproc(int);
 void            proc_mapstacks(pagetable_t);
@@ -94,7 +96,8 @@ void            proc_freepagetable(pagetable_t, uint64);
 int             kill(int pid, int signum);
 struct cpu*     mycpu(void);
 struct cpu*     getmycpu(void);
-struct proc*    myproc();
+struct proc*    myproc(); 
+struct kthread* mykthread();
 void            procinit(void);
 void            scheduler(void) __attribute__((noreturn));
 void            sched(void);
@@ -102,7 +105,7 @@ void            setproc(struct proc*);
 void            sleep(void*, struct spinlock*);
 void            userinit(void);
 int             wait(uint64);
-void            wakeup(void*);
+int             wakeup(void*);
 void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
@@ -112,6 +115,14 @@ int             sigaction(int , const struct sigaction *act, struct sigaction *o
 void            sigret(void);                                                           //task2.1.5 
 void            turn_off_bit(struct proc *p, int sig_num);
 void            turn_on_bit(struct proc *p, int sig_num);
+int             init_thread(struct kthread *t);
+void            kill_proccess(int status);
+int             kthread_create(void (*start_func)(), void *stack);
+int             kthread_join_all();
+
+// int             kthread_id();
+void            kthread_exit(int status);
+int             kthread_join(int thread_id, int* status);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
@@ -124,6 +135,8 @@ void            initlock(struct spinlock*, char*);
 void            release(struct spinlock*);
 void            push_off(void);
 void            pop_off(void);
+
+void            initsemaphores();
 
 // sleeplock.c
 void            acquiresleep(struct sleeplock*);
@@ -194,7 +207,11 @@ void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
 
 
-// number of elements in fixed-size array
+// number of elements in fixed-size array//
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 
 #define MAX_UINT 0xffffffff //task2.1.2
+
+#define MAX_STACK_SIZE 4000
+
+void            printTF(struct kthread *t);//for debug, delete it later

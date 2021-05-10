@@ -21,6 +21,25 @@ exec(char *path, char **argv)
   pagetable_t pagetable = 0, oldpagetable;
   struct proc *p = myproc();
 
+  struct kthread *t = mykthread();
+  struct kthread *nt;
+
+
+  // Kill all process threads 
+  for(nt = p->kthreads;nt < &p->kthreads[NTHREAD];nt++){ 
+    if(nt!=t && nt->state!=TUNUSED){
+      acquire(&nt->lock);
+      nt->killed=1;
+      if(nt->state == TSLEEPING){
+        nt->state = TRUNNABLE;
+      }
+      release(&nt->lock);  
+    }
+  }
+
+  // Wait for all threads to terminate
+  kthread_join_all();
+    
   begin_op();
 
   if((ip = namei(path)) == 0){
@@ -100,14 +119,16 @@ exec(char *path, char **argv)
   // arguments to user main(argc, argv)
   // argc is returned via the system call return
   // value, which goes in a0.
-  p->trapframe->a1 = sp;
+  // p->trapframe->a1 = sp;
+  t->trapframe->a1 = sp;
+
 
   // Save program name for debugging.
   for(last=s=path; *s; s++)
     if(*s == '/')
       last = s+1;
   safestrcpy(p->name, last, sizeof(p->name));
-    
+
   // task 2.1.2 
   for(int i=0; i<32; i++){
     if(!((p->signal_handlers[i]) == (void*)SIG_IGN)){
@@ -115,13 +136,12 @@ exec(char *path, char **argv)
         p->handlers_sigmasks[i]=0;   
     }
   }
-
   // Commit to the user image.
   oldpagetable = p->pagetable;
   p->pagetable = pagetable;
   p->sz = sz;
-  p->trapframe->epc = elf.entry;  // initial program counter = main
-  p->trapframe->sp = sp; // initial stack pointer
+  t->trapframe->epc = elf.entry;  // initial program counter = main
+  t->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
 
   return argc; // this ends up in a0, the first argument to main(argc, argv)

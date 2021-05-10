@@ -25,9 +25,22 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 
+// signal sys calls
 uint sigprocmask(uint sigmask);         //2.1.3
 int sigaction(int, const struct sigaction*, struct sigaction*); //2.1.4
 void sigret (void);//2.1.5
+
+// thread sys calls
+int kthread_create ( void ( *start_func ) ( ) , void *stack );
+int kthread_id();
+void kthread_exit(int status);
+int kthread_join(int thread_id, int* status);
+
+// semaphore system calls
+int bsem_alloc();
+void bsem_free(int);
+void bsem_down(int);
+void bsem_up(int);
 
 // ulib.c
 int stat(const char*, struct stat*);
@@ -52,3 +65,7 @@ void *memcpy(void *, const void *, uint);
 #define SIGKILL 9
 #define SIGSTOP 17
 #define SIGCONT 19
+#define MAX_STACK_SIZE 4000
+#define STACK_SIZE 4000
+
+
