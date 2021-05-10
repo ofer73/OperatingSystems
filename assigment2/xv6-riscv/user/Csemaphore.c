@@ -18,7 +18,7 @@ csem_down(struct counting_semaphore *sem){
         return;
     }
     
-    bsem_down(sem->S1_desc);   //TODO: make sure works
+    bsem_down(sem->S1_desc);  
     sem->waiting++;
     bsem_up(sem->S1_desc);
 
@@ -55,6 +55,8 @@ csem_alloc(struct counting_semaphore *sem, int initial_value){
         return -1;
     sem->value = initial_value;
     sem->waiting = 0;
+    if(initial_value == 0)
+        bsem_down(sem->S2_desc);
 
     return 0;
 }

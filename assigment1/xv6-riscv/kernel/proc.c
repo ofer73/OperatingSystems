@@ -612,7 +612,6 @@ comperative_policy(int (*compare)(struct proc *p1, struct proc *p2)){
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc=0;
-        // TODO: check if needed
         next_p->runnable_since=ticks+1;
       }
       next_p->chosen = 0;
@@ -620,66 +619,6 @@ comperative_policy(int (*compare)(struct proc *p1, struct proc *p2)){
     }
   }
 }
-
-
-
-// void 
-// comperative_policy(int (*compare)(struct proc *p1, struct proc *p2)){
-//   struct proc *p;
-//   struct cpu *c = mycpu();
-//   struct proc *next_p = 0;
-//   c->proc = 0;
-
-//   for(;;){
-//     // Avoid deadlock by ensuring that devices can interrupt.
-//     intr_on();
-//     for(p = proc; p < &proc[NPROC]; p++) {
-//       acquire(&p->lock);
-//       if(p->state == RUNNABLE) {
-//         // printf("process calling compare \n");
-//         if(next_p == 0 || compare(next_p, p) > 0){        
-//           // in case we have been holding a prev procces, release it
-//           if(next_p != 0 && next_p-> lock.cpu == c){
-//             release(&next_p->lock);
-//           }
-//           next_p = p;
-//         }
-//       }
-//       // If p was not found as min procces, release it
-//       if(p != next_p ){
-//         release(&p->lock);
-//       }
-//     }
-//     if(next_p!=0&&next_p->state == RUNNABLE){
-//       // printf("the process %d is indeed RUNNABLE\n",next_p->pid);    
-
-//       // Switch to chosen process.  It is the process's job
-//       // to release its lock and then reacquire it
-//       // before jumping back to us.
-//       next_p->state = RUNNING;
-//       c->proc = next_p;
-
-//       // New runtime -> Init runtime counter with 0
-//       // For average burst time calculation
-//       next_p->current_runtime = 0;
-
-//       // printf("about to switch\n");
-//       swtch(&c->context, &next_p->context);
-//       // printf("returned from switch\n");
-
-//       // Process is done running for now.
-//       // It should have changed its p->state before coming back.
-//       c->proc=0;
-//       // TODO: check if needed
-//       next_p->runnable_since=ticks+1;
-//     }
-//     if(next_p!=0 && next_p-> lock.cpu == c){
-//       release(&next_p->lock);
-//     }
-//   }
-// }
-
-//endregion 
 
   
 // Switch to scheduler.  Must hold only p->lock

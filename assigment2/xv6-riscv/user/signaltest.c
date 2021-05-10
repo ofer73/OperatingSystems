@@ -247,7 +247,6 @@ test_user_handler_kill(){
 
 
     int pid = fork();
-    int i;
     if(pid==0){
         int ret=sigaction(3,&act,&oldact);
         if(ret <0 ){
@@ -255,9 +254,10 @@ test_user_handler_kill(){
             exit(-1);
         }
 
-        for(i=0;i<100;i++)
+        for(int i=0; i<100; i++){
             sleep(1);
             printf("out-side handler %d\n ", i);
+        }
         exit(0);
     }else{
         printf("son pid=%d, dad pid=%d\n",pid, getpid());

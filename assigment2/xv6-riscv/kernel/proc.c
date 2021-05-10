@@ -683,7 +683,6 @@ void
 sched(void)
 {
   int intena;
-  struct proc *p = myproc();
   struct kthread *t=mykthread();
 
   if(!holding(&t->lock))
