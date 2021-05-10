@@ -65,7 +65,7 @@ fmtname(char *path)
   5e:	00000097          	auipc	ra,0x0
   62:	2be080e7          	jalr	702(ra) # 31c <strlen>
   66:	00001997          	auipc	s3,0x1
-  6a:	d1a98993          	addi	s3,s3,-742 # d80 <buf.0>
+  6a:	cc298993          	addi	s3,s3,-830 # d28 <buf.0>
   6e:	0005061b          	sext.w	a2,a0
   72:	85a6                	mv	a1,s1
   74:	854e                	mv	a0,s3
@@ -148,7 +148,7 @@ ls(char *path)
  11c:	d9c42683          	lw	a3,-612(s0)
  120:	da041603          	lh	a2,-608(s0)
  124:	00001517          	auipc	a0,0x1
- 128:	b5450513          	addi	a0,a0,-1196 # c78 <csem_free+0x98>
+ 128:	b2c50513          	addi	a0,a0,-1236 # c50 <csem_free+0x70>
  12c:	00000097          	auipc	ra,0x0
  130:	7e8080e7          	jalr	2024(ra) # 914 <printf>
       }
@@ -173,7 +173,7 @@ ls(char *path)
     fprintf(2, "ls: cannot open %s\n", path);
  160:	864a                	mv	a2,s2
  162:	00001597          	auipc	a1,0x1
- 166:	ae658593          	addi	a1,a1,-1306 # c48 <csem_free+0x68>
+ 166:	abe58593          	addi	a1,a1,-1346 # c20 <csem_free+0x40>
  16a:	4509                	li	a0,2
  16c:	00000097          	auipc	ra,0x0
  170:	77a080e7          	jalr	1914(ra) # 8e6 <fprintf>
@@ -182,7 +182,7 @@ ls(char *path)
     fprintf(2, "ls: cannot stat %s\n", path);
  176:	864a                	mv	a2,s2
  178:	00001597          	auipc	a1,0x1
- 17c:	ae858593          	addi	a1,a1,-1304 # c60 <csem_free+0x80>
+ 17c:	ac058593          	addi	a1,a1,-1344 # c38 <csem_free+0x58>
  180:	4509                	li	a0,2
  182:	00000097          	auipc	ra,0x0
  186:	764080e7          	jalr	1892(ra) # 8e6 <fprintf>
@@ -201,7 +201,7 @@ ls(char *path)
  1a6:	00a7fb63          	bgeu	a5,a0,1bc <ls+0x108>
       printf("ls: path too long\n");
  1aa:	00001517          	auipc	a0,0x1
- 1ae:	ade50513          	addi	a0,a0,-1314 # c88 <csem_free+0xa8>
+ 1ae:	ab650513          	addi	a0,a0,-1354 # c60 <csem_free+0x80>
  1b2:	00000097          	auipc	ra,0x0
  1b6:	762080e7          	jalr	1890(ra) # 914 <printf>
       break;
@@ -225,10 +225,10 @@ ls(char *path)
  1ec:	00f90023          	sb	a5,0(s2)
       printf("%s %d %d %d\n", fmtname(buf), st.type, st.ino, st.size);
  1f0:	00001a17          	auipc	s4,0x1
- 1f4:	ab0a0a13          	addi	s4,s4,-1360 # ca0 <csem_free+0xc0>
+ 1f4:	a88a0a13          	addi	s4,s4,-1400 # c78 <csem_free+0x98>
         printf("ls: cannot stat %s\n", buf);
  1f8:	00001a97          	auipc	s5,0x1
- 1fc:	a68a8a93          	addi	s5,s5,-1432 # c60 <csem_free+0x80>
+ 1fc:	a40a8a93          	addi	s5,s5,-1472 # c38 <csem_free+0x58>
     while(read(fd, &de, sizeof(de)) == sizeof(de)){
  200:	a801                	j	210 <ls+0x15c>
         printf("ls: cannot stat %s\n", buf);
@@ -313,7 +313,7 @@ main(int argc, char *argv[])
  2b6:	290080e7          	jalr	656(ra) # 542 <exit>
     ls(".");
  2ba:	00001517          	auipc	a0,0x1
- 2be:	9f650513          	addi	a0,a0,-1546 # cb0 <csem_free+0xd0>
+ 2be:	9ce50513          	addi	a0,a0,-1586 # c88 <csem_free+0xa8>
  2c2:	00000097          	auipc	ra,0x0
  2c6:	df2080e7          	jalr	-526(ra) # b4 <ls>
     exit(0);
@@ -595,7 +595,7 @@ atoi(const char *s)
   while('0' <= *s && *s <= '9')
  44c:	00054603          	lbu	a2,0(a0)
  450:	fd06079b          	addiw	a5,a2,-48
- 454:	0ff7f793          	andi	a5,a5,255
+ 454:	0ff7f793          	zext.b	a5,a5
  458:	4725                	li	a4,9
  45a:	02f76963          	bltu	a4,a5,48c <atoi+0x46>
  45e:	86aa                	mv	a3,a0
@@ -613,7 +613,7 @@ atoi(const char *s)
   while('0' <= *s && *s <= '9')
  476:	0006c603          	lbu	a2,0(a3)
  47a:	fd06071b          	addiw	a4,a2,-48
- 47e:	0ff77713          	andi	a4,a4,255
+ 47e:	0ff77713          	zext.b	a4,a4
  482:	fee5f1e3          	bgeu	a1,a4,464 <atoi+0x1e>
   return n;
 }
@@ -1124,7 +1124,7 @@ printint(int fd, int xx, int base, int sgn)
     buf[i++] = digits[x % base];
  67e:	2601                	sext.w	a2,a2
  680:	00000517          	auipc	a0,0x0
- 684:	64050513          	addi	a0,a0,1600 # cc0 <digits>
+ 684:	61850513          	addi	a0,a0,1560 # c98 <digits>
  688:	883a                	mv	a6,a4
  68a:	2705                	addiw	a4,a4,1
  68c:	02c5f7bb          	remuw	a5,a1,a2
@@ -1234,7 +1234,7 @@ vprintf(int fd, const char *fmt, va_list ap)
  748:	07000d93          	li	s11,112
     putc(fd, digits[x >> (sizeof(uint64) * 8 - 4)]);
  74c:	00000b97          	auipc	s7,0x0
- 750:	574b8b93          	addi	s7,s7,1396 # cc0 <digits>
+ 750:	54cb8b93          	addi	s7,s7,1356 # c98 <digits>
  754:	a839                	j	772 <vprintf+0x6a>
         putc(fd, c);
  756:	85ca                	mv	a1,s2
@@ -1388,7 +1388,7 @@ vprintf(int fd, const char *fmt, va_list ap)
  88a:	bdf9                	j	768 <vprintf+0x60>
           s = "(null)";
  88c:	00000917          	auipc	s2,0x0
- 890:	42c90913          	addi	s2,s2,1068 # cb8 <csem_free+0xd8>
+ 890:	40490913          	addi	s2,s2,1028 # c90 <csem_free+0xb0>
         while(*s != 0){
  894:	02800593          	li	a1,40
  898:	bff1                	j	874 <vprintf+0x16c>
@@ -1511,7 +1511,7 @@ free(void *ap)
  950:	ff050693          	addi	a3,a0,-16
   for(p = freep; !(bp > p && bp < p->s.ptr); p = p->s.ptr)
  954:	00000797          	auipc	a5,0x0
- 958:	4247b783          	ld	a5,1060(a5) # d78 <freep>
+ 958:	3cc7b783          	ld	a5,972(a5) # d20 <freep>
  95c:	a805                	j	98c <free+0x42>
     if(p >= p->s.ptr && (bp > p || bp < p->s.ptr))
       break;
@@ -1568,7 +1568,7 @@ free(void *ap)
  9c2:	e394                	sd	a3,0(a5)
   freep = p;
  9c4:	00000717          	auipc	a4,0x0
- 9c8:	3af73a23          	sd	a5,948(a4) # d78 <freep>
+ 9c8:	34f73e23          	sd	a5,860(a4) # d20 <freep>
 }
  9cc:	6422                	ld	s0,8(sp)
  9ce:	0141                	addi	sp,sp,16
@@ -1603,7 +1603,7 @@ malloc(uint nbytes)
  9f4:	0485                	addi	s1,s1,1
   if((prevp = freep) == 0){
  9f6:	00000517          	auipc	a0,0x0
- 9fa:	38253503          	ld	a0,898(a0) # d78 <freep>
+ 9fa:	32a53503          	ld	a0,810(a0) # d20 <freep>
  9fe:	c515                	beqz	a0,a2a <malloc+0x58>
     base.s.ptr = freep = prevp = &base;
     base.s.size = 0;
@@ -1628,15 +1628,15 @@ malloc(uint nbytes)
     }
     if(p == freep)
  a1e:	00000917          	auipc	s2,0x0
- a22:	35a90913          	addi	s2,s2,858 # d78 <freep>
+ a22:	30290913          	addi	s2,s2,770 # d20 <freep>
   if(p == (char*)-1)
  a26:	5afd                	li	s5,-1
  a28:	a895                	j	a9c <malloc+0xca>
     base.s.ptr = freep = prevp = &base;
  a2a:	00000797          	auipc	a5,0x0
- a2e:	36678793          	addi	a5,a5,870 # d90 <base>
+ a2e:	30e78793          	addi	a5,a5,782 # d38 <base>
  a32:	00000717          	auipc	a4,0x0
- a36:	34f73323          	sd	a5,838(a4) # d78 <freep>
+ a36:	2ef73723          	sd	a5,750(a4) # d20 <freep>
  a3a:	e39c                	sd	a5,0(a5)
     base.s.size = 0;
  a3c:	0007a423          	sw	zero,8(a5)
@@ -1655,7 +1655,7 @@ malloc(uint nbytes)
  a56:	0137a423          	sw	s3,8(a5)
       freep = prevp;
  a5a:	00000717          	auipc	a4,0x0
- a5e:	30a73f23          	sd	a0,798(a4) # d78 <freep>
+ a5e:	2ca73323          	sd	a0,710(a4) # d20 <freep>
       return (void*)(p + 1);
  a62:	01078513          	addi	a0,a5,16
       if((p = morecore(nunits)) == 0)
@@ -1770,7 +1770,7 @@ csem_down(struct counting_semaphore *sem){
  b1a:	8082                	ret
         printf("invalid sem pointer in csem_down\n");
  b1c:	00000517          	auipc	a0,0x0
- b20:	1bc50513          	addi	a0,a0,444 # cd8 <digits+0x18>
+ b20:	19450513          	addi	a0,a0,404 # cb0 <digits+0x18>
  b24:	00000097          	auipc	ra,0x0
  b28:	df0080e7          	jalr	-528(ra) # 914 <printf>
         return;
@@ -1822,7 +1822,7 @@ csem_up(struct counting_semaphore *sem){
  b74:	8082                	ret
         printf("invalid sem pointer in csem_up\n");
  b76:	00000517          	auipc	a0,0x0
- b7a:	18a50513          	addi	a0,a0,394 # d00 <digits+0x40>
+ b7a:	16250513          	addi	a0,a0,354 # cd8 <digits+0x40>
  b7e:	00000097          	auipc	ra,0x0
  b82:	d96080e7          	jalr	-618(ra) # 914 <printf>
         return;
@@ -1888,54 +1888,30 @@ csem_free(struct counting_semaphore *sem){
  be6:	e426                	sd	s1,8(sp)
  be8:	1000                	addi	s0,sp,32
     if(!sem){
- bea:	c905                	beqz	a0,c1a <csem_free+0x3a>
+ bea:	c10d                	beqz	a0,c0c <csem_free+0x2c>
  bec:	84aa                	mv	s1,a0
         printf("invalid sem pointer in csem_free\n");
         return;
-    
     }
 
-    bsem_down(sem->S1_desc);
+    bsem_free(sem->S1_desc);
  bee:	4108                	lw	a0,0(a0)
  bf0:	00000097          	auipc	ra,0x0
- bf4:	a3a080e7          	jalr	-1478(ra) # 62a <bsem_down>
-
-    if(sem->waiting!=0){
- bf8:	44dc                	lw	a5,12(s1)
- bfa:	eb8d                	bnez	a5,c2c <csem_free+0x4c>
-        printf("csem_free: cant free while proc waiting\n");
-        bsem_up(sem->S1_desc);
-        return;
-    }
-    bsem_free(sem->S1_desc);
- bfc:	4088                	lw	a0,0(s1)
- bfe:	00000097          	auipc	ra,0x0
- c02:	a24080e7          	jalr	-1500(ra) # 622 <bsem_free>
+ bf4:	a32080e7          	jalr	-1486(ra) # 622 <bsem_free>
     bsem_free(sem->S2_desc);
- c06:	40c8                	lw	a0,4(s1)
- c08:	00000097          	auipc	ra,0x0
- c0c:	a1a080e7          	jalr	-1510(ra) # 622 <bsem_free>
+ bf8:	40c8                	lw	a0,4(s1)
+ bfa:	00000097          	auipc	ra,0x0
+ bfe:	a28080e7          	jalr	-1496(ra) # 622 <bsem_free>
 
- c10:	60e2                	ld	ra,24(sp)
- c12:	6442                	ld	s0,16(sp)
- c14:	64a2                	ld	s1,8(sp)
- c16:	6105                	addi	sp,sp,32
- c18:	8082                	ret
+ c02:	60e2                	ld	ra,24(sp)
+ c04:	6442                	ld	s0,16(sp)
+ c06:	64a2                	ld	s1,8(sp)
+ c08:	6105                	addi	sp,sp,32
+ c0a:	8082                	ret
         printf("invalid sem pointer in csem_free\n");
- c1a:	00000517          	auipc	a0,0x0
- c1e:	10650513          	addi	a0,a0,262 # d20 <digits+0x60>
- c22:	00000097          	auipc	ra,0x0
- c26:	cf2080e7          	jalr	-782(ra) # 914 <printf>
+ c0c:	00000517          	auipc	a0,0x0
+ c10:	0ec50513          	addi	a0,a0,236 # cf8 <digits+0x60>
+ c14:	00000097          	auipc	ra,0x0
+ c18:	d00080e7          	jalr	-768(ra) # 914 <printf>
         return;
- c2a:	b7dd                	j	c10 <csem_free+0x30>
-        printf("csem_free: cant free while proc waiting\n");
- c2c:	00000517          	auipc	a0,0x0
- c30:	11c50513          	addi	a0,a0,284 # d48 <digits+0x88>
- c34:	00000097          	auipc	ra,0x0
- c38:	ce0080e7          	jalr	-800(ra) # 914 <printf>
-        bsem_up(sem->S1_desc);
- c3c:	4088                	lw	a0,0(s1)
- c3e:	00000097          	auipc	ra,0x0
- c42:	9f4080e7          	jalr	-1548(ra) # 632 <bsem_up>
-        return;
- c46:	b7e9                	j	c10 <csem_free+0x30>
+ c1c:	b7dd                	j	c02 <csem_free+0x22>

@@ -21,7 +21,7 @@ getcmd(char *buf, int nbuf)
        e:	892e                	mv	s2,a1
   fprintf(2, "$ ");
       10:	00001597          	auipc	a1,0x1
-      14:	4b858593          	addi	a1,a1,1208 # 14c8 <csem_free+0x68>
+      14:	49058593          	addi	a1,a1,1168 # 14a0 <csem_free+0x40>
       18:	4509                	li	a0,2
       1a:	00001097          	auipc	ra,0x1
       1e:	14c080e7          	jalr	332(ra) # 1166 <fprintf>
@@ -64,7 +64,7 @@ panic(char *s)
       5c:	862a                	mv	a2,a0
   fprintf(2, "%s\n", s);
       5e:	00001597          	auipc	a1,0x1
-      62:	47258593          	addi	a1,a1,1138 # 14d0 <csem_free+0x70>
+      62:	44a58593          	addi	a1,a1,1098 # 14a8 <csem_free+0x48>
       66:	4509                	li	a0,2
       68:	00001097          	auipc	ra,0x1
       6c:	0fe080e7          	jalr	254(ra) # 1166 <fprintf>
@@ -100,7 +100,7 @@ fork1(void)
       96:	8082                	ret
     panic("fork");
       98:	00001517          	auipc	a0,0x1
-      9c:	44050513          	addi	a0,a0,1088 # 14d8 <csem_free+0x78>
+      9c:	41850513          	addi	a0,a0,1048 # 14b0 <csem_free+0x50>
       a0:	00000097          	auipc	ra,0x0
       a4:	fb4080e7          	jalr	-76(ra) # 54 <panic>
 
@@ -121,7 +121,7 @@ fork1(void)
       be:	00056783          	lwu	a5,0(a0)
       c2:	078a                	slli	a5,a5,0x2
       c4:	00001717          	auipc	a4,0x1
-      c8:	50c70713          	addi	a4,a4,1292 # 15d0 <csem_free+0x170>
+      c8:	4ec70713          	addi	a4,a4,1260 # 15b0 <csem_free+0x150>
       cc:	97ba                	add	a5,a5,a4
       ce:	439c                	lw	a5,0(a5)
       d0:	97ba                	add	a5,a5,a4
@@ -132,7 +132,7 @@ fork1(void)
       da:	cec080e7          	jalr	-788(ra) # dc2 <exit>
     panic("runcmd");
       de:	00001517          	auipc	a0,0x1
-      e2:	40250513          	addi	a0,a0,1026 # 14e0 <csem_free+0x80>
+      e2:	3da50513          	addi	a0,a0,986 # 14b8 <csem_free+0x58>
       e6:	00000097          	auipc	ra,0x0
       ea:	f6e080e7          	jalr	-146(ra) # 54 <panic>
     if(ecmd->argv[0] == 0)
@@ -145,7 +145,7 @@ fork1(void)
     fprintf(2, "exec %s failed\n", ecmd->argv[0]);
       fe:	6490                	ld	a2,8(s1)
      100:	00001597          	auipc	a1,0x1
-     104:	3e858593          	addi	a1,a1,1000 # 14e8 <csem_free+0x88>
+     104:	3c058593          	addi	a1,a1,960 # 14c0 <csem_free+0x60>
      108:	4509                	li	a0,2
      10a:	00001097          	auipc	ra,0x1
      10e:	05c080e7          	jalr	92(ra) # 1166 <fprintf>
@@ -174,7 +174,7 @@ fork1(void)
       fprintf(2, "open %s failed\n", rcmd->file);
      14a:	6890                	ld	a2,16(s1)
      14c:	00001597          	auipc	a1,0x1
-     150:	3ac58593          	addi	a1,a1,940 # 14f8 <csem_free+0x98>
+     150:	38458593          	addi	a1,a1,900 # 14d0 <csem_free+0x70>
      154:	4509                	li	a0,2
      156:	00001097          	auipc	ra,0x1
      15a:	010080e7          	jalr	16(ra) # 1166 <fprintf>
@@ -231,7 +231,7 @@ fork1(void)
      1e0:	bf0d                	j	112 <runcmd+0x6a>
       panic("pipe");
      1e2:	00001517          	auipc	a0,0x1
-     1e6:	32650513          	addi	a0,a0,806 # 1508 <csem_free+0xa8>
+     1e6:	2fe50513          	addi	a0,a0,766 # 14e0 <csem_free+0x80>
      1ea:	00000097          	auipc	ra,0x0
      1ee:	e6a080e7          	jalr	-406(ra) # 54 <panic>
       close(1);
@@ -532,7 +532,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
      3f8:	6104                	ld	s1,0(a0)
   while(s < es && strchr(whitespace, *s))
      3fa:	00001997          	auipc	s3,0x1
-     3fe:	2ce98993          	addi	s3,s3,718 # 16c8 <whitespace>
+     3fe:	27e98993          	addi	s3,s3,638 # 1678 <whitespace>
      402:	00b4fd63          	bgeu	s1,a1,41c <gettoken+0x40>
      406:	0004c583          	lbu	a1,0(s1)
      40a:	854e                	mv	a0,s3
@@ -559,7 +559,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
      43e:	02600713          	li	a4,38
      442:	00e78963          	beq	a5,a4,454 <gettoken+0x78>
      446:	fd87879b          	addiw	a5,a5,-40
-     44a:	0ff7f793          	andi	a5,a5,255
+     44a:	0ff7f793          	zext.b	a5,a5
      44e:	4705                	li	a4,1
      450:	06f76c63          	bltu	a4,a5,4c8 <gettoken+0xec>
   case '(':
@@ -581,7 +581,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
 
   while(s < es && strchr(whitespace, *s))
      45e:	00001997          	auipc	s3,0x1
-     462:	26a98993          	addi	s3,s3,618 # 16c8 <whitespace>
+     462:	21a98993          	addi	s3,s3,538 # 1678 <whitespace>
      466:	0124fd63          	bgeu	s1,s2,480 <gettoken+0xa4>
      46a:	0004c583          	lbu	a1,0(s1)
      46e:	854e                	mv	a0,s3
@@ -631,9 +631,9 @@ gettoken(char **ps, char *es, char **q, char **eq)
      4c4:	f8e788e3          	beq	a5,a4,454 <gettoken+0x78>
     while(s < es && !strchr(whitespace, *s) && !strchr(symbols, *s))
      4c8:	00001997          	auipc	s3,0x1
-     4cc:	20098993          	addi	s3,s3,512 # 16c8 <whitespace>
+     4cc:	1b098993          	addi	s3,s3,432 # 1678 <whitespace>
      4d0:	00001a97          	auipc	s5,0x1
-     4d4:	1f0a8a93          	addi	s5,s5,496 # 16c0 <symbols>
+     4d4:	1a0a8a93          	addi	s5,s5,416 # 1670 <symbols>
      4d8:	0324f563          	bgeu	s1,s2,502 <gettoken+0x126>
      4dc:	0004c583          	lbu	a1,0(s1)
      4e0:	854e                	mv	a0,s3
@@ -682,7 +682,7 @@ peek(char **ps, char *es, char *toks)
      530:	6104                	ld	s1,0(a0)
   while(s < es && strchr(whitespace, *s))
      532:	00001997          	auipc	s3,0x1
-     536:	19698993          	addi	s3,s3,406 # 16c8 <whitespace>
+     536:	14698993          	addi	s3,s3,326 # 1678 <whitespace>
      53a:	00b4fd63          	bgeu	s1,a1,554 <peek+0x3c>
      53e:	0004c583          	lbu	a1,0(s1)
      542:	854e                	mv	a0,s3
@@ -744,7 +744,7 @@ parseredirs(struct cmd *cmd, char **ps, char *es)
 
   while(peek(ps, es, "<>")){
      5a2:	00001b97          	auipc	s7,0x1
-     5a6:	f8eb8b93          	addi	s7,s7,-114 # 1530 <csem_free+0xd0>
+     5a6:	f66b8b93          	addi	s7,s7,-154 # 1508 <csem_free+0xa8>
     tok = gettoken(ps, es, 0, 0);
     if(gettoken(ps, es, &q, &eq) != 'a')
      5aa:	06100c13          	li	s8,97
@@ -755,7 +755,7 @@ parseredirs(struct cmd *cmd, char **ps, char *es)
      5b2:	a02d                	j	5dc <parseredirs+0x5a>
       panic("missing file for redirection");
      5b4:	00001517          	auipc	a0,0x1
-     5b8:	f5c50513          	addi	a0,a0,-164 # 1510 <csem_free+0xb0>
+     5b8:	f3450513          	addi	a0,a0,-204 # 14e8 <csem_free+0x88>
      5bc:	00000097          	auipc	ra,0x0
      5c0:	a98080e7          	jalr	-1384(ra) # 54 <panic>
     case '<':
@@ -873,7 +873,7 @@ parseexec(char **ps, char *es)
 
   if(peek(ps, es, "("))
      69c:	00001617          	auipc	a2,0x1
-     6a0:	e9c60613          	addi	a2,a2,-356 # 1538 <csem_free+0xd8>
+     6a0:	e7460613          	addi	a2,a2,-396 # 1510 <csem_free+0xb0>
      6a4:	00000097          	auipc	ra,0x0
      6a8:	e74080e7          	jalr	-396(ra) # 518 <peek>
      6ac:	e905                	bnez	a0,6dc <parseexec+0x5e>
@@ -896,7 +896,7 @@ parseexec(char **ps, char *es)
   while(!peek(ps, es, "|)&;")){
      6c8:	008c0913          	addi	s2,s8,8
      6cc:	00001b17          	auipc	s6,0x1
-     6d0:	e8cb0b13          	addi	s6,s6,-372 # 1558 <csem_free+0xf8>
+     6d0:	e64b0b13          	addi	s6,s6,-412 # 1530 <csem_free+0xd0>
     if((tok=gettoken(ps, es, &q, &eq)) == 0)
       break;
     if(tok != 'a')
@@ -937,7 +937,7 @@ parseexec(char **ps, char *es)
      704:	8082                	ret
       panic("syntax");
      706:	00001517          	auipc	a0,0x1
-     70a:	e3a50513          	addi	a0,a0,-454 # 1540 <csem_free+0xe0>
+     70a:	e1250513          	addi	a0,a0,-494 # 1518 <csem_free+0xb8>
      70e:	00000097          	auipc	ra,0x0
      712:	946080e7          	jalr	-1722(ra) # 54 <panic>
     ret = parseredirs(ret, ps, es);
@@ -977,7 +977,7 @@ parseexec(char **ps, char *es)
      764:	fb7999e3          	bne	s3,s7,716 <parseexec+0x98>
       panic("too many args");
      768:	00001517          	auipc	a0,0x1
-     76c:	de050513          	addi	a0,a0,-544 # 1548 <csem_free+0xe8>
+     76c:	db850513          	addi	a0,a0,-584 # 1520 <csem_free+0xc0>
      770:	00000097          	auipc	ra,0x0
      774:	8e4080e7          	jalr	-1820(ra) # 54 <panic>
   cmd->argv[argc] = 0;
@@ -1006,7 +1006,7 @@ parseexec(char **ps, char *es)
      7a0:	84aa                	mv	s1,a0
   if(peek(ps, es, "|")){
      7a2:	00001617          	auipc	a2,0x1
-     7a6:	dbe60613          	addi	a2,a2,-578 # 1560 <csem_free+0x100>
+     7a6:	d9660613          	addi	a2,a2,-618 # 1538 <csem_free+0xd8>
      7aa:	85ce                	mv	a1,s3
      7ac:	854a                	mv	a0,s2
      7ae:	00000097          	auipc	ra,0x0
@@ -1059,7 +1059,7 @@ parseexec(char **ps, char *es)
      810:	84aa                	mv	s1,a0
   while(peek(ps, es, "&")){
      812:	00001a17          	auipc	s4,0x1
-     816:	d56a0a13          	addi	s4,s4,-682 # 1568 <csem_free+0x108>
+     816:	d2ea0a13          	addi	s4,s4,-722 # 1540 <csem_free+0xe0>
      81a:	a839                	j	838 <parseline+0x44>
     gettoken(ps, es, 0, 0);
      81c:	4681                	li	a3,0
@@ -1082,7 +1082,7 @@ parseexec(char **ps, char *es)
      846:	f979                	bnez	a0,81c <parseline+0x28>
   if(peek(ps, es, ";")){
      848:	00001617          	auipc	a2,0x1
-     84c:	d2860613          	addi	a2,a2,-728 # 1570 <csem_free+0x110>
+     84c:	d0060613          	addi	a2,a2,-768 # 1548 <csem_free+0xe8>
      850:	85ce                	mv	a1,s3
      852:	854a                	mv	a0,s2
      854:	00000097          	auipc	ra,0x0
@@ -1131,7 +1131,7 @@ parseexec(char **ps, char *es)
      8ac:	892e                	mv	s2,a1
   if(!peek(ps, es, "("))
      8ae:	00001617          	auipc	a2,0x1
-     8b2:	c8a60613          	addi	a2,a2,-886 # 1538 <csem_free+0xd8>
+     8b2:	c6260613          	addi	a2,a2,-926 # 1510 <csem_free+0xb0>
      8b6:	00000097          	auipc	ra,0x0
      8ba:	c62080e7          	jalr	-926(ra) # 518 <peek>
      8be:	c12d                	beqz	a0,920 <parseblock+0x84>
@@ -1150,7 +1150,7 @@ parseexec(char **ps, char *es)
      8dc:	89aa                	mv	s3,a0
   if(!peek(ps, es, ")"))
      8de:	00001617          	auipc	a2,0x1
-     8e2:	caa60613          	addi	a2,a2,-854 # 1588 <csem_free+0x128>
+     8e2:	c8260613          	addi	a2,a2,-894 # 1560 <csem_free+0x100>
      8e6:	85ca                	mv	a1,s2
      8e8:	8526                	mv	a0,s1
      8ea:	00000097          	auipc	ra,0x0
@@ -1179,12 +1179,12 @@ parseexec(char **ps, char *es)
      91e:	8082                	ret
     panic("parseblock");
      920:	00001517          	auipc	a0,0x1
-     924:	c5850513          	addi	a0,a0,-936 # 1578 <csem_free+0x118>
+     924:	c3050513          	addi	a0,a0,-976 # 1550 <csem_free+0xf0>
      928:	fffff097          	auipc	ra,0xfffff
      92c:	72c080e7          	jalr	1836(ra) # 54 <panic>
     panic("syntax - missing )");
      930:	00001517          	auipc	a0,0x1
-     934:	c6050513          	addi	a0,a0,-928 # 1590 <csem_free+0x130>
+     934:	c3850513          	addi	a0,a0,-968 # 1568 <csem_free+0x108>
      938:	fffff097          	auipc	ra,0xfffff
      93c:	71c080e7          	jalr	1820(ra) # 54 <panic>
 
@@ -1216,7 +1216,7 @@ nulterminate(struct cmd *cmd)
      956:	00056783          	lwu	a5,0(a0)
      95a:	078a                	slli	a5,a5,0x2
      95c:	00001717          	auipc	a4,0x1
-     960:	c8c70713          	addi	a4,a4,-884 # 15e8 <csem_free+0x188>
+     960:	c6c70713          	addi	a4,a4,-916 # 15c8 <csem_free+0x168>
      964:	97ba                	add	a5,a5,a4
      966:	439c                	lw	a5,0(a5)
      968:	97ba                	add	a5,a5,a4
@@ -1309,7 +1309,7 @@ nulterminate(struct cmd *cmd)
      a06:	892a                	mv	s2,a0
   peek(&s, es, "");
      a08:	00001617          	auipc	a2,0x1
-     a0c:	cb060613          	addi	a2,a2,-848 # 16b8 <digits+0xb0>
+     a0c:	b7860613          	addi	a2,a2,-1160 # 1580 <csem_free+0x120>
      a10:	85a6                	mv	a1,s1
      a12:	fd840513          	addi	a0,s0,-40
      a16:	00000097          	auipc	ra,0x0
@@ -1331,13 +1331,13 @@ nulterminate(struct cmd *cmd)
      a3c:	8082                	ret
     fprintf(2, "leftovers: %s\n", s);
      a3e:	00001597          	auipc	a1,0x1
-     a42:	b6a58593          	addi	a1,a1,-1174 # 15a8 <csem_free+0x148>
+     a42:	b4a58593          	addi	a1,a1,-1206 # 1588 <csem_free+0x128>
      a46:	4509                	li	a0,2
      a48:	00000097          	auipc	ra,0x0
      a4c:	71e080e7          	jalr	1822(ra) # 1166 <fprintf>
     panic("syntax");
      a50:	00001517          	auipc	a0,0x1
-     a54:	af050513          	addi	a0,a0,-1296 # 1540 <csem_free+0xe0>
+     a54:	ac850513          	addi	a0,a0,-1336 # 1518 <csem_free+0xb8>
      a58:	fffff097          	auipc	ra,0xfffff
      a5c:	5fc080e7          	jalr	1532(ra) # 54 <panic>
 
@@ -1354,7 +1354,7 @@ nulterminate(struct cmd *cmd)
      a70:	0080                	addi	s0,sp,64
   while((fd = open("console", O_RDWR)) >= 0){
      a72:	00001497          	auipc	s1,0x1
-     a76:	b4648493          	addi	s1,s1,-1210 # 15b8 <csem_free+0x158>
+     a76:	b2648493          	addi	s1,s1,-1242 # 1598 <csem_free+0x138>
      a7a:	4589                	li	a1,2
      a7c:	8526                	mv	a0,s1
      a7e:	00000097          	auipc	ra,0x0
@@ -1368,16 +1368,16 @@ nulterminate(struct cmd *cmd)
      a94:	35a080e7          	jalr	858(ra) # dea <close>
   while(getcmd(buf, sizeof(buf)) >= 0){
      a98:	00001497          	auipc	s1,0x1
-     a9c:	c4048493          	addi	s1,s1,-960 # 16d8 <buf.0>
+     a9c:	bf048493          	addi	s1,s1,-1040 # 1688 <buf.0>
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
      aa0:	06300913          	li	s2,99
      aa4:	02000993          	li	s3,32
       if(chdir(buf+3) < 0)
      aa8:	00001a17          	auipc	s4,0x1
-     aac:	c33a0a13          	addi	s4,s4,-973 # 16db <buf.0+0x3>
+     aac:	be3a0a13          	addi	s4,s4,-1053 # 168b <buf.0+0x3>
         fprintf(2, "cannot cd %s\n", buf+3);
      ab0:	00001a97          	auipc	s5,0x1
-     ab4:	b10a8a93          	addi	s5,s5,-1264 # 15c0 <csem_free+0x160>
+     ab4:	af0a8a93          	addi	s5,s5,-1296 # 15a0 <csem_free+0x140>
      ab8:	a819                	j	ace <main+0x6e>
     if(fork1() == 0)
      aba:	fffff097          	auipc	ra,0xfffff
@@ -1424,7 +1424,7 @@ nulterminate(struct cmd *cmd)
      b30:	bf79                	j	ace <main+0x6e>
       runcmd(parsecmd(buf));
      b32:	00001517          	auipc	a0,0x1
-     b36:	ba650513          	addi	a0,a0,-1114 # 16d8 <buf.0>
+     b36:	b5650513          	addi	a0,a0,-1194 # 1688 <buf.0>
      b3a:	00000097          	auipc	ra,0x0
      b3e:	e9e080e7          	jalr	-354(ra) # 9d8 <parsecmd>
      b42:	fffff097          	auipc	ra,0xfffff
@@ -1708,7 +1708,7 @@ atoi(const char *s)
   while('0' <= *s && *s <= '9')
      ccc:	00054603          	lbu	a2,0(a0)
      cd0:	fd06079b          	addiw	a5,a2,-48
-     cd4:	0ff7f793          	andi	a5,a5,255
+     cd4:	0ff7f793          	zext.b	a5,a5
      cd8:	4725                	li	a4,9
      cda:	02f76963          	bltu	a4,a5,d0c <atoi+0x46>
      cde:	86aa                	mv	a3,a0
@@ -1726,7 +1726,7 @@ atoi(const char *s)
   while('0' <= *s && *s <= '9')
      cf6:	0006c603          	lbu	a2,0(a3)
      cfa:	fd06071b          	addiw	a4,a2,-48
-     cfe:	0ff77713          	andi	a4,a4,255
+     cfe:	0ff77713          	zext.b	a4,a4
      d02:	fee5f1e3          	bgeu	a1,a4,ce4 <atoi+0x1e>
   return n;
 }
@@ -2237,7 +2237,7 @@ printint(int fd, int xx, int base, int sgn)
     buf[i++] = digits[x % base];
      efe:	2601                	sext.w	a2,a2
      f00:	00000517          	auipc	a0,0x0
-     f04:	70850513          	addi	a0,a0,1800 # 1608 <digits>
+     f04:	6e850513          	addi	a0,a0,1768 # 15e8 <digits>
      f08:	883a                	mv	a6,a4
      f0a:	2705                	addiw	a4,a4,1
      f0c:	02c5f7bb          	remuw	a5,a1,a2
@@ -2347,7 +2347,7 @@ vprintf(int fd, const char *fmt, va_list ap)
      fc8:	07000d93          	li	s11,112
     putc(fd, digits[x >> (sizeof(uint64) * 8 - 4)]);
      fcc:	00000b97          	auipc	s7,0x0
-     fd0:	63cb8b93          	addi	s7,s7,1596 # 1608 <digits>
+     fd0:	61cb8b93          	addi	s7,s7,1564 # 15e8 <digits>
      fd4:	a839                	j	ff2 <vprintf+0x6a>
         putc(fd, c);
      fd6:	85ca                	mv	a1,s2
@@ -2501,7 +2501,7 @@ vprintf(int fd, const char *fmt, va_list ap)
     110a:	bdf9                	j	fe8 <vprintf+0x60>
           s = "(null)";
     110c:	00000917          	auipc	s2,0x0
-    1110:	4f490913          	addi	s2,s2,1268 # 1600 <csem_free+0x1a0>
+    1110:	4d490913          	addi	s2,s2,1236 # 15e0 <csem_free+0x180>
         while(*s != 0){
     1114:	02800593          	li	a1,40
     1118:	bff1                	j	10f4 <vprintf+0x16c>
@@ -2624,7 +2624,7 @@ free(void *ap)
     11d0:	ff050693          	addi	a3,a0,-16
   for(p = freep; !(bp > p && bp < p->s.ptr); p = p->s.ptr)
     11d4:	00000797          	auipc	a5,0x0
-    11d8:	4fc7b783          	ld	a5,1276(a5) # 16d0 <freep>
+    11d8:	4ac7b783          	ld	a5,1196(a5) # 1680 <freep>
     11dc:	a805                	j	120c <free+0x42>
     if(p >= p->s.ptr && (bp > p || bp < p->s.ptr))
       break;
@@ -2681,7 +2681,7 @@ free(void *ap)
     1242:	e394                	sd	a3,0(a5)
   freep = p;
     1244:	00000717          	auipc	a4,0x0
-    1248:	48f73623          	sd	a5,1164(a4) # 16d0 <freep>
+    1248:	42f73e23          	sd	a5,1084(a4) # 1680 <freep>
 }
     124c:	6422                	ld	s0,8(sp)
     124e:	0141                	addi	sp,sp,16
@@ -2716,7 +2716,7 @@ malloc(uint nbytes)
     1274:	0485                	addi	s1,s1,1
   if((prevp = freep) == 0){
     1276:	00000517          	auipc	a0,0x0
-    127a:	45a53503          	ld	a0,1114(a0) # 16d0 <freep>
+    127a:	40a53503          	ld	a0,1034(a0) # 1680 <freep>
     127e:	c515                	beqz	a0,12aa <malloc+0x58>
     base.s.ptr = freep = prevp = &base;
     base.s.size = 0;
@@ -2741,15 +2741,15 @@ malloc(uint nbytes)
     }
     if(p == freep)
     129e:	00000917          	auipc	s2,0x0
-    12a2:	43290913          	addi	s2,s2,1074 # 16d0 <freep>
+    12a2:	3e290913          	addi	s2,s2,994 # 1680 <freep>
   if(p == (char*)-1)
     12a6:	5afd                	li	s5,-1
     12a8:	a895                	j	131c <malloc+0xca>
     base.s.ptr = freep = prevp = &base;
     12aa:	00000797          	auipc	a5,0x0
-    12ae:	49678793          	addi	a5,a5,1174 # 1740 <base>
+    12ae:	44678793          	addi	a5,a5,1094 # 16f0 <base>
     12b2:	00000717          	auipc	a4,0x0
-    12b6:	40f73f23          	sd	a5,1054(a4) # 16d0 <freep>
+    12b6:	3cf73723          	sd	a5,974(a4) # 1680 <freep>
     12ba:	e39c                	sd	a5,0(a5)
     base.s.size = 0;
     12bc:	0007a423          	sw	zero,8(a5)
@@ -2768,7 +2768,7 @@ malloc(uint nbytes)
     12d6:	0137a423          	sw	s3,8(a5)
       freep = prevp;
     12da:	00000717          	auipc	a4,0x0
-    12de:	3ea73b23          	sd	a0,1014(a4) # 16d0 <freep>
+    12de:	3aa73323          	sd	a0,934(a4) # 1680 <freep>
       return (void*)(p + 1);
     12e2:	01078513          	addi	a0,a5,16
       if((p = morecore(nunits)) == 0)
@@ -2883,7 +2883,7 @@ csem_down(struct counting_semaphore *sem){
     139a:	8082                	ret
         printf("invalid sem pointer in csem_down\n");
     139c:	00000517          	auipc	a0,0x0
-    13a0:	28450513          	addi	a0,a0,644 # 1620 <digits+0x18>
+    13a0:	26450513          	addi	a0,a0,612 # 1600 <digits+0x18>
     13a4:	00000097          	auipc	ra,0x0
     13a8:	df0080e7          	jalr	-528(ra) # 1194 <printf>
         return;
@@ -2935,7 +2935,7 @@ csem_up(struct counting_semaphore *sem){
     13f4:	8082                	ret
         printf("invalid sem pointer in csem_up\n");
     13f6:	00000517          	auipc	a0,0x0
-    13fa:	25250513          	addi	a0,a0,594 # 1648 <digits+0x40>
+    13fa:	23250513          	addi	a0,a0,562 # 1628 <digits+0x40>
     13fe:	00000097          	auipc	ra,0x0
     1402:	d96080e7          	jalr	-618(ra) # 1194 <printf>
         return;
@@ -3001,54 +3001,30 @@ csem_free(struct counting_semaphore *sem){
     1466:	e426                	sd	s1,8(sp)
     1468:	1000                	addi	s0,sp,32
     if(!sem){
-    146a:	c905                	beqz	a0,149a <csem_free+0x3a>
+    146a:	c10d                	beqz	a0,148c <csem_free+0x2c>
     146c:	84aa                	mv	s1,a0
         printf("invalid sem pointer in csem_free\n");
         return;
-    
     }
 
-    bsem_down(sem->S1_desc);
+    bsem_free(sem->S1_desc);
     146e:	4108                	lw	a0,0(a0)
     1470:	00000097          	auipc	ra,0x0
-    1474:	a3a080e7          	jalr	-1478(ra) # eaa <bsem_down>
-
-    if(sem->waiting!=0){
-    1478:	44dc                	lw	a5,12(s1)
-    147a:	eb8d                	bnez	a5,14ac <csem_free+0x4c>
-        printf("csem_free: cant free while proc waiting\n");
-        bsem_up(sem->S1_desc);
-        return;
-    }
-    bsem_free(sem->S1_desc);
-    147c:	4088                	lw	a0,0(s1)
-    147e:	00000097          	auipc	ra,0x0
-    1482:	a24080e7          	jalr	-1500(ra) # ea2 <bsem_free>
+    1474:	a32080e7          	jalr	-1486(ra) # ea2 <bsem_free>
     bsem_free(sem->S2_desc);
-    1486:	40c8                	lw	a0,4(s1)
-    1488:	00000097          	auipc	ra,0x0
-    148c:	a1a080e7          	jalr	-1510(ra) # ea2 <bsem_free>
+    1478:	40c8                	lw	a0,4(s1)
+    147a:	00000097          	auipc	ra,0x0
+    147e:	a28080e7          	jalr	-1496(ra) # ea2 <bsem_free>
 
-    1490:	60e2                	ld	ra,24(sp)
-    1492:	6442                	ld	s0,16(sp)
-    1494:	64a2                	ld	s1,8(sp)
-    1496:	6105                	addi	sp,sp,32
-    1498:	8082                	ret
+    1482:	60e2                	ld	ra,24(sp)
+    1484:	6442                	ld	s0,16(sp)
+    1486:	64a2                	ld	s1,8(sp)
+    1488:	6105                	addi	sp,sp,32
+    148a:	8082                	ret
         printf("invalid sem pointer in csem_free\n");
-    149a:	00000517          	auipc	a0,0x0
-    149e:	1ce50513          	addi	a0,a0,462 # 1668 <digits+0x60>
-    14a2:	00000097          	auipc	ra,0x0
-    14a6:	cf2080e7          	jalr	-782(ra) # 1194 <printf>
+    148c:	00000517          	auipc	a0,0x0
+    1490:	1bc50513          	addi	a0,a0,444 # 1648 <digits+0x60>
+    1494:	00000097          	auipc	ra,0x0
+    1498:	d00080e7          	jalr	-768(ra) # 1194 <printf>
         return;
-    14aa:	b7dd                	j	1490 <csem_free+0x30>
-        printf("csem_free: cant free while proc waiting\n");
-    14ac:	00000517          	auipc	a0,0x0
-    14b0:	1e450513          	addi	a0,a0,484 # 1690 <digits+0x88>
-    14b4:	00000097          	auipc	ra,0x0
-    14b8:	ce0080e7          	jalr	-800(ra) # 1194 <printf>
-        bsem_up(sem->S1_desc);
-    14bc:	4088                	lw	a0,0(s1)
-    14be:	00000097          	auipc	ra,0x0
-    14c2:	9f4080e7          	jalr	-1548(ra) # eb2 <bsem_up>
-        return;
-    14c6:	b7e9                	j	1490 <csem_free+0x30>
+    149c:	b7dd                	j	1482 <csem_free+0x22>

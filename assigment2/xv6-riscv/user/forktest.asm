@@ -433,7 +433,7 @@ atoi(const char *s)
   while('0' <= *s && *s <= '9')
  296:	00054603          	lbu	a2,0(a0)
  29a:	fd06079b          	addiw	a5,a2,-48
- 29e:	0ff7f793          	andi	a5,a5,255
+ 29e:	0ff7f793          	zext.b	a5,a5
  2a2:	4725                	li	a4,9
  2a4:	02f76963          	bltu	a4,a5,2d6 <atoi+0x46>
  2a8:	86aa                	mv	a3,a0
@@ -451,7 +451,7 @@ atoi(const char *s)
   while('0' <= *s && *s <= '9')
  2c0:	0006c603          	lbu	a2,0(a3)
  2c4:	fd06071b          	addiw	a4,a2,-48
- 2c8:	0ff77713          	andi	a4,a4,255
+ 2c8:	0ff77713          	zext.b	a4,a4
  2cc:	fee5f1e3          	bgeu	a1,a4,2ae <atoi+0x1e>
   return n;
 }

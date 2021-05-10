@@ -405,7 +405,7 @@ fork(void)
   struct kthread *t = mykthread();
 
   // Allocate process.
-  if((np = allocproc()) == 0){//////////////////////////////////////////////////check  lock p and t
+  if((np = allocproc()) == 0){
     return -1;
   }
 
@@ -419,12 +419,11 @@ fork(void)
 
   // copy saved user registers.
   np_first_thread = &np->kthreads[0];
-  // acquire(&np_first_thread ->lock);  ////////////////////////////////////////////////////////////////check allready holding
 
-  acquire(&wait_lock);/////////////////////////////////////////////////////////////////check
+  acquire(&wait_lock);
   *(np_first_thread->trapframe) = *(t->trapframe);
   // Cause fork to return 0 in the child.
-  np_first_thread->trapframe->a0 = 0;  // TODO: change reading the ret value from proc a0 to thread a0
+  np_first_thread->trapframe->a0 = 0;  
 
   release(&wait_lock);////////////////////////////////////////////////////////////////check
   // increment reference counts on open file descriptors.
@@ -482,9 +481,6 @@ exit_proccess(int status)
   struct proc *p = myproc();
   struct kthread *t = mykthread();
 
-  int proc_index= (int)(p-proc);// TODO delete
-  // printf("%d dx: at e_proc\n",proc_index);// TODO delete
-
   if(p == initproc)
     panic("init exiting");
 
@@ -496,23 +492,16 @@ exit_proccess(int status)
       p->ofile[fd] = 0;
     }
   }
-  // printf("%d dx: at e_proc_b\n",proc_index);// TODO delete
   begin_op();
   iput(p->cwd);
   end_op();
   p->cwd = 0;
-  // printf("ep-b%d\n",p->pid);//TODO delete
   acquire(&wait_lock);
-  // printf("ep-a%d\n",p->pid);//TODO delete
-  // printf("%d dx: at e_proc_c\n",proc_index);// TODO delete
   // Give any children to init.
   reparent(p);
-  // printf("%d dx: at e_proc_d\n",proc_index);// TODO delete
   // Parent might be sleeping in wait().
   wakeup(p->parent);
-  // printf("%d dx: at e_proc_e\n",proc_index);// TODO delete
   acquire(&p->lock);
-  // printf("%d dx: at e_proc_f\n",proc_index);// TODO delete
   p->xstate = status;
   p->state = ZOMBIE;
   t->state=TZOMBIE;
@@ -523,11 +512,9 @@ exit_proccess(int status)
   // acquire thread lock before sched
   acquire(&t->lock);
   release(&p->lock);// ze po achav :) 
-  // printf("%d dx: at e_proc_g\n",proc_index);// TODO delete
 
   // Jump into the scheduler, never to return.
   sched();
-  printf("zombie exit %d\n",proc_index);
   panic("zombie exit");
 }
 
@@ -573,7 +560,6 @@ exit(int status){
 
   struct proc *p = myproc();
   struct kthread *t = mykthread();
-  // printf("e%d\n",p->pid);//TODO delete
   for(t=p->kthreads; t<&p->kthreads[NTHREAD];t++){
     acquire(&t->lock);
     t->killed = 1;
@@ -700,22 +686,11 @@ sched(void)
   struct proc *p = myproc();
   struct kthread *t=mykthread();
 
-  // if(!holding(&p->lock))
-  //   panic("sched p->lock");
-  // if(mycpu()->noff != 1)
-  //   panic("sched locks");
-  // if(p->state == RUNNING)
-  //   panic("sched running");
-  // if(intr_get())
-  //   panic("sched interruptible");
-              int proc_index= (int)(p-proc);// TODO delete
-
   if(!holding(&t->lock))
     panic("sched t->lock");
   if(mycpu()->noff != 1)
     panic("sched locks");
   if(t->state == TRUNNING){
-    printf("sched%d\n",proc_index);
     panic("sched running");
   }
   if(intr_get())
@@ -727,29 +702,7 @@ sched(void)
   mycpu()->intena = intena;
 }
 
-//the process who got the signal will do the following 
-// int 
-// handle_signal(struct proc *p, int signum){
-//   struct sigaction act = p->signal_handlers[signum];
-//   int original_mask = p->signal_mask;
 
-//   if(original_mask & (1<<signum) == 1){//Block signal
-//     return 0;
-//   }
-//   p->pending_signals ^= (1<<signum);  // remove signal from pending 
-//   if(act.sa_handler==SIG_IGN){//after removed from pending, ignore signal
-//     return 0;
-//   }
-//   p->signal_mask = act.sigmask;
-//   switch((uint)act.sa_handler){
-//     case(SIG_DFL)
-//       if(signum==SIGSTOP){
-//         sig_stop_handler();
-//       }
-//       else if(signum == SIGCONT){
-//       }
-//   }
-// }
 
 // Give up the CPU for one scheduling round.
 void
@@ -775,7 +728,7 @@ forkret(void)
   // Still holding p->lock from scheduler.
   // release(&myproc()->lock);
 
-  release(&mykthread()->lock);    // TODO: check if this change is good
+  release(&mykthread()->lock);    
 
   if (first) {
     // File system initialization must be run in the context of a
@@ -784,8 +737,6 @@ forkret(void)
     first = 0;
     fsinit(ROOTDEV);
   }
-  // printf("ffret%d\n",myproc()->pid);//TODO delete
-
 
   usertrapret();
 }
@@ -896,48 +847,6 @@ kill(int pid, int signum)
   }
 
   // didnt find any procces with pid
-  return -1;
-}
-
-// // Kill the process with the given pid.
-// // The victim won't exit until it tries to return
-// // to user space (see usertrap() in trap.c).
-// int
-// sig_kill(int pid)
-// {
-//   struct proc *p;
-
-//   for(p = proc; p < &proc[NPROC]; p++){
-//     acquire(&p->lock);
-//     if(p->pid == pid){
-//       p->killed = 1;
-//       if(p->state == SLEEPING){
-//         // Wake process from sleep().
-//         p->state = RUNNABLE;
-//       }
-//       release(&p->lock);
-//       return 0;
-//     }
-//     release(&p->lock);
-//   }
-//   return -1;
-// }
-
-int
-sig_stop(int pid)//TODO delete if not used
-{
-  struct proc *p;
-
-  for(p = proc; p < &proc[NPROC]; p++){
-    acquire(&p->lock);
-    if(p->pid == pid){
-      p->pending_signals|=(1<<SIGSTOP);
-
-      release(&p->lock);
-      return 0;
-    }
-    release(&p->lock);
-  }
   return -1;
 }
 
@@ -1062,7 +971,7 @@ sigret(void){
 
   // restore user stack pointer
   acquire(&p->lock);
-  // TODO maybe we will need to also lock the kthread lock
+
   t->trapframe->sp += sizeof(struct trapframe);
 
   p->signal_mask = p->signal_mask_backup;
@@ -1150,9 +1059,6 @@ kthread_join(int thread_id, int* status){
     return -1;
   }
   found:
-  // printf("%d:join to %d\n",p->pid,thread_id);  // TODO delete
-  // Wait for thread to terminate
-  // still holding nt lock
   for(;;){
       if(nt->state==TZOMBIE){
         if(status != 0 && copyout(p->pagetable, (uint64)status, (char *)&nt->xstate,sizeof(nt->xstate)) < 0) {
@@ -1198,19 +1104,4 @@ kthread_join_all(){
   }
 
   return res;
-}
-
-
-void 
-printTF(struct kthread *t){//function for debuging, TODO delete
-  printf("**************tid=%d*****************\n",t->tid);
-  // printf("t->tf->epc = %p\n",t->trapframe->epc);
-  // printf("t->tf->ra = %p\n",t->trapframe->ra);
-  // printf("t->tf->kernel_sp = %p\n",t->trapframe->kernel_sp);
-  printf("t->kstack = %p\n",t->kstack);
-  printf("t->context = %p\n",t->context);
-  printf("t->tf->sp = %p\n",t->trapframe->sp);
-  printf("t->state = %d\n",t->state);
-  printf("**************************************\n",t->tid);
-
 }

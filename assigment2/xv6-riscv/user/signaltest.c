@@ -48,7 +48,7 @@ test_sigkill(){//
    int pid = fork();
     if(pid==0){
         sleep(5);
-        for(int i=0;i<300;i++)
+        for(int i=0;i<100;i++)
             printf("about to get killed %d\n",i);
         // exit(0);
     }
@@ -60,7 +60,7 @@ test_sigkill(){//
         wait(0);
         printf("parent: child is dead\n");
         sleep(10);
-        exit(0);
+        return;
     }
 }
 
@@ -85,7 +85,8 @@ sig_handler_loop(int signum){
 void
 sig_handler_loop2(int signum){
     char st[5] = "dap\n";
-    for(int i=0;i<500;i++){
+    for(int i=0;i<100;i++){
+        sleep(1);
         write(1, st, 5);
     }
     
@@ -126,7 +127,7 @@ test_usersig(){
             printf("child doing stuff before exit \n");
         }
         ret=sigaction(signum1,&act,&oldact);
-        printf("oldact should be the same as new act before \n oldact->mask=%d \t oldact->sa_handler=%d \n",oldact.sigmask,oldact.sa_handler);
+        printf("oldact should be the same as new act before \n oldact->mask=%d \t oldact->sa_handler=%p \n",oldact.sigmask,oldact.sa_handler);
 
         exit(0);
 
@@ -137,7 +138,6 @@ test_usersig(){
         // printf("parent send sig 4 to child ret=%d\n",kill(pid,4));
 
         wait(0);
-        exit(0);
     }
 }
 void 
@@ -194,7 +194,7 @@ test_stop_cont(){
         // for(int i=0;i<100;i++)
         //  printf("parent..");
         sleep(10);
-        exit(0);
+        return;
     }
 }
 
@@ -224,7 +224,6 @@ test_ignore(){
         sleep(5);
         kill(pid,signum);
         wait(0);
-
     }
 }
 void
@@ -256,7 +255,8 @@ test_user_handler_kill(){
             exit(-1);
         }
 
-        for(i=0;i<500;i++)
+        for(i=0;i<100;i++)
+            sleep(1);
             printf("out-side handler %d\n ", i);
         exit(0);
     }else{
@@ -267,40 +267,8 @@ test_user_handler_kill(){
         printf("parent send kill ret= %d\n",kill(pid, SIGKILL));
         wait(0);
         printf("parent exiting\n");
-        exit(0);
     }
 }
-
-void Csem_test(char *s){
-	struct counting_semaphore csem;
-    int retval;
-    int pid;
-    
-    
-    retval = csem_alloc(&csem,1);
-    if(retval==-1)
-    {
-		printf("failed csem alloc\n");
-		exit(-1);
-	}
-    csem_down(&csem);
-    printf("1. Parent downing semaphore\n");
-    if((pid = fork()) == 0){
-        printf("2. Child downing semaphore\n");
-        csem_down(&csem);
-        printf("4. Child woke up\n");
-        exit(0);
-    }
-    sleep(5);
-    printf("3. Let the child wait on the semaphore...\n");
-    sleep(10);
-    csem_up(&csem);
-    csem_free(&csem);
-    wait(&pid);
-
-    printf("Finished bsem test, make sure that the order of the prints is alright. Meaning (1...2...3...4)\n");
-}
-
 
 
 int main(){
@@ -316,11 +284,11 @@ int main(){
     // test_block();
     // printf("-----------------------------test_ignore-----------------------------\n");
     // test_ignore();
-    // printf("-----------------------------test_user_handler_then_kill-----------------------------\n");
-    // test_user_handler_kill();
+    printf("-----------------------------test_user_handler_then_kill-----------------------------\n");
+    test_user_handler_kill();
 
-    printf("-----------------------------Csem_test-----------------------------\n");
-    Csem_test("a");
+
+  
    
 
     exit(0);

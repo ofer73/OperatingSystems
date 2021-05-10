@@ -92,9 +92,7 @@ usertrap(void)
     yield();
 
   //before returning to user space, check pending signals
-  if(holding(&p->lock))
-    printf("fuck i am holding the lock in usertrap\n");   // TODO : delete
-
+  
   // check if need to pend signals
   acquire(&p->lock);
   if(!p->handling_sig_flag){

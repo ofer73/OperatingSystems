@@ -63,16 +63,8 @@ csem_free(struct counting_semaphore *sem){
     if(!sem){
         printf("invalid sem pointer in csem_free\n");
         return;
-    
     }
 
-    bsem_down(sem->S1_desc);
-
-    if(sem->waiting!=0){
-        printf("csem_free: cant free while proc waiting\n");
-        bsem_up(sem->S1_desc);
-        return;
-    }
     bsem_free(sem->S1_desc);
     bsem_free(sem->S2_desc);
 

@@ -35,7 +35,6 @@ void
 acquire(struct spinlock *lk){
   push_off(); // disable interrupts to avoid deadlock.
   if(holding(lk)){
-    printf("pid=%d tid=%d tried to lock when already holding\n",lk->cpu->proc->pid,mykthread()->tid);//TODO delete
     panic("acquire");
 
   }
@@ -163,13 +162,7 @@ bsem_free(int sem_index){
     release(&bsem->s_lock);
     panic("fack semaphore is not alloced in bsem_down");
   }
-  if(bsem->waiting > 0)
-    panic("tried to bsem_free when threads are blocked");
-
-  // if(bsem->s == 0)
-  //   panic("tried to free bsem when it is locked!");
-
-  
+ 
   bsem->state = SUNUSED;
   release(&bsem->s_lock);
 }
@@ -183,9 +176,9 @@ bsem_down(int sem_index){
 
   struct bsemaphore *bsem = &bsemaphores[sem_index];
   acquire(&bsem->s_lock);
-  if(bsem->state == SUNUSED ){
+  if(bsem->state == SUNUSED ){  // can happen if other thread freed the semaphore or invlid input -> unsupported
     release(&bsem->s_lock);
-    panic("fack semaphore is not alloced in bsem_down");
+    return;
   }
 
   bsem->waiting++;
@@ -204,10 +197,11 @@ void bsem_up(int sem_index){
 
   struct bsemaphore *bsem = &bsemaphores[sem_index];
   acquire(&bsem->s_lock);
-  if(bsem->state == SUNUSED ){
+   if(bsem->state == SUNUSED ){  // can happen if other thread freed the semaphore or invlid input -> unsupported
     release(&bsem->s_lock);
-    panic("fack semaphore is not alloced in bsem_down");
+    return;
   }
+
   bsem->s++;
 
   if(bsem->waiting > 0)
