@@ -101,8 +101,10 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
 // or 0 if not mapped.
 // Can only be used to look up user pages.
 uint64
-walkaddr(pagetable_t pagetable, uint64 va)
+walkaddr(pagetable_t pagetable, uint64 va, int to_page_out)
 {
+  // check if we have space in phsical addres or in case the 
+
   pte_t *pte;
   uint64 pa;
 
@@ -117,6 +119,14 @@ walkaddr(pagetable_t pagetable, uint64 va)
   if((*pte & PTE_U) == 0)
     return 0;
   pa = PTE2PA(*pte);
+
+  if(to_page_out){  // case we are paging out need to update flags in pte
+    if (!(*pte & PTE_V))
+      panic("walkaddr: fack pte is not valid ");
+    *pte ^= (1 << PTE_V);     // page table entry now invalid
+    *pte |= (1 << PTE_PG);    // paged out to secondary storage
+
+  }
   return pa;
 }
 
@@ -347,7 +357,7 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
-    pa0 = walkaddr(pagetable, va0);
+    pa0 = walkaddr(pagetable, va0, 0);
     if(pa0 == 0)
       return -1;
     n = PGSIZE - (dstva - va0);
@@ -372,7 +382,7 @@ copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 
   while(len > 0){
     va0 = PGROUNDDOWN(srcva);
-    pa0 = walkaddr(pagetable, va0);
+    pa0 = walkaddr(pagetable, va0, 0);
     if(pa0 == 0)
       return -1;
     n = PGSIZE - (srcva - va0);
@@ -399,7 +409,7 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 
   while(got_null == 0 && max > 0){
     va0 = PGROUNDDOWN(srcva);
-    pa0 = walkaddr(pagetable, va0);
+    pa0 = walkaddr(pagetable, va0, 0);
     if(pa0 == 0)
       return -1;
     n = PGSIZE - (srcva - va0);

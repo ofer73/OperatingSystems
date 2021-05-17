@@ -82,6 +82,21 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+// Proc Pages Section
+
+#define MAX_TOTAL_PAGES 32
+#define MAX_PSYC_PAGES 16
+
+struct page_swap_info{  
+  uint64 va;                      // Virtual address of page (used as identifier)
+  int index;                      // Index of page location in swap file (index*sizeof(page) == offset). if not paged out index=-1  
+};
+
+struct pages_swap_info{
+  uint16 free_spaces;           // Bit array indicating which entiries in swapfile are free
+  struct page_swap_info pages[MAX_TOTAL_PAGES];  //Keep information about each page in or out the swap file
+};
+
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -105,6 +120,10 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-
+  
   struct file *swapFile;
+
+  int physical_pages_num;      // num of pages in physical memory for p
+  int total_pages_num;         // num of pages in physical and virtual memory for p
+  struct pages_swap_info pages_swap_info;
 };

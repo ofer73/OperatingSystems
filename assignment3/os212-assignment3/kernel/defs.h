@@ -58,6 +58,7 @@ int		        createSwapFile(struct proc* p);
 int	          	readFromSwapFile(struct proc * p, char* buffer, uint placeOnFile, uint size);
 int		        writeToSwapFile(struct proc* p, char* buffer, uint placeOnFile, uint size);
 int		        removeSwapFile(struct proc* p);
+uint64          page_out(uint64 va);
 
 // ramdisk.c
 void            ramdiskinit(void);
@@ -110,6 +111,10 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+// Task3
+int             next_free_space_in_swap_file();
+uint64          where_in_swap_file(uint64 va);
+struct page_swap_info * get_page_swap_info(uint64 va);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
@@ -176,7 +181,7 @@ int             uvmcopy(pagetable_t, pagetable_t, uint64);
 void            uvmfree(pagetable_t, uint64);
 void            uvmunmap(pagetable_t, uint64, uint64, int);
 void            uvmclear(pagetable_t, uint64);
-uint64          walkaddr(pagetable_t, uint64);
+uint64          walkaddr(pagetable_t, uint64,int);
 int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
