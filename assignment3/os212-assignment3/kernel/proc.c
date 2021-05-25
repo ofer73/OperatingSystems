@@ -253,6 +253,8 @@ void userinit(void)
 
   p->state = RUNNABLE;
 
+ 
+
   release(&p->lock);
 }
 
@@ -293,10 +295,6 @@ int fork(void)
     return -1;
   }
 
-  // if(p->pid==1||p->pid==2){
-
-  // }
-
   // Copy user memory from parent to child.
   if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0)
   {
@@ -321,10 +319,16 @@ int fork(void)
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
+  
 
   release(&np->lock);
 
+  // TASK3 
   createSwapFile(np);
+  copyFilesInfo(p,np);
+  np->physical_pages_num = p->physical_pages_num;
+  np->total_pages_num = p->total_pages_num;
+
 
   acquire(&wait_lock);
   np->parent = p;
@@ -687,24 +691,11 @@ void procdump(void)
   }
 }
 
-// Check if page in swap file
-// return page index if exist in swap file,
-// -1 swap file aware of page but page is not in swap file
-// and -2 if page is not exist
-uint64
-where_in_swap_file(uint64 va)
-{
-  struct page_swap_info *psi = get_page_swap_info(va);
-  if (psi == 0)
-    return -2;
-  return psi->index;
-}
 
 // Next free space in swap file
-int next_free_space_in_swap_file()
+int next_free_space(uint16 free_spaces)
 {
   struct proc *p = myproc();
-  uint16 free_spaces = p->pages_swap_info.free_spaces;
   for (int i = 0; i < MAX_PSYC_PAGES; i++)
   {
     if (!(free_spaces & (1 << i)))
@@ -714,21 +705,18 @@ int next_free_space_in_swap_file()
 }
 
 // Get file vm and return file entery inside swap file if exist
-struct page_swap_info *
-get_page_swap_info(uint64 va)
+int get_index_in_page_info_array(uint64 va, struct page_info *arr)
 {
-  struct proc *p = myproc();
-  uint64 a = PGROUNDDOWN(va);
+  uint64 rva = PGROUNDDOWN(va);
   for (int i = 0; i < MAX_TOTAL_PAGES; i++)
   {
-    struct page_swap_info *po = &(p->pages_swap_info.pages[i]);
-    if (po->va == a)
+    struct page_info *po = &arr[i];
+    if (po->va == rva)
     {
-      return po;
+      return i;
     }
   }
-
-  return 0; // if not found return null
+  return -1; // if not found return null
 }
 
 //  Call this function when p is accuired
@@ -748,60 +736,107 @@ page_out(uint64 va)
   uint64 pa = walkaddr(p->pagetable, rva, 1); // return with pte valid = 0
 
   // insert the page to the swap file
-  int free_index = next_free_space_in_swap_file();
+  int free_index = next_free_space(p->pages_swap_info.free_spaces);
+   if(free_index < 0)
+    panic("page out: free index in swap file not found");
+  p->pages_swap_info.pages[free_index].va = va; // Save location of page in swapfile
   int start_offset = free_index * PGSIZE;
   if (free_index < 0 || free_index >= MAX_PSYC_PAGES)
     panic("fadge no free index in page_out");
-  writeToSwapFile(p, (char *)pa, start_offset, PGSIZE);
+  writeToSwapFile(p, (char *)pa, start_offset, PGSIZE); // Write page to swap file
 
-  // update the swap info struct
-  struct pages_swap_info *pages_sw = &p->pages_swap_info;
-  // mark free_index as occupied
-  pages_sw->free_spaces |= (1 << free_index);
-  struct page_swap_info *pswi = get_page_swap_info(va);
-  if (!pswi)
-    panic("fadge page swap info not found in page_out");
-  pswi->index = free_index;
+  // Update the ram info struct
+  int old_index = get_index_in_page_info_array(va, p->pages_physc_info.pages);
+  if(old_index < 0)
+    panic("page out: physc page not found");
+
+  if(!(p->pages_physc_info.free_spaces & (1 << old_index)))
+    panic("page_in: tried to reset free space flag when it is not set");
+  p->pages_physc_info.free_spaces ^= (1 << old_index);  // set old space in physc arr as free
+  if(p->pages_swap_info.free_spaces & (1 << free_index))
+    panic("page_in: tried to set free space flag when it is already set");
+  p->pages_swap_info.free_spaces |= (1 << free_index); // mark new space in swap arr as occupied
+
   // update the physical page counter
-  p->physical_pages_num --;
+  p->physical_pages_num--;
 
   // free space in physical memory
-  kfree((void*)pa);
+  kfree((void *)pa);
 
   return pa;
 }
 
 // move page from swap file to physical memory
-uint64
+pte_t*
 page_in(uint64 va, pte_t *pte)
 {
   struct proc *p = myproc();
   // update swap info
-  int page_index = where_in_swap_file(va);
-  int start_offset = page_index * PGSIZE;
-  if (page_index < 0 || page_index >= MAX_PSYC_PAGES)
-    panic("fadge no free index in page_in");
-  p->pages_swap_info.free_spaces ^= 1 << page_index;
+  int page_index_swapfile = get_index_in_page_info_array(va, p->pages_swap_info.pages);
+  int page_index_phsical = next_free_space(p->pages_physc_info.free_spaces);
+  
+  if(page_index_swapfile < 0 || page_index_swapfile >= MAX_PSYC_PAGES)
+    panic("page_in: index in swap file not found");
+  if(page_index_phsical < 0 || page_index_phsical >= MAX_PSYC_PAGES)
+    panic("page_in: free index in physc arr not found");
+  //update swap struct
+  int start_offset = page_index_swapfile * PGSIZE;
+  if(!(p->pages_swap_info.free_spaces & (1 << page_index_swapfile)))
+    panic("page_in: tried to reset free space flag when it is not set");
+  p->pages_swap_info.free_spaces ^= (1 << page_index_swapfile); // mark space as free
+  //update ram struct
+  if(p->pages_physc_info.free_spaces & (1 << page_index_phsical))
+    panic("page_in: tried to set free space flag when it is already set");
+  p->pages_physc_info.free_spaces |= 1 << page_index_phsical; // mark space as occupied
+  p->pages_physc_info.pages[page_index_phsical].va = va;  // save va of physc page
+  p->pages_physc_info.pages[page_index_phsical].time_inserted = ticks;  // save insertion time for FIFO paging policy 
+  // TODO: check if there is not a more general place for this
 
-  // remove page from swap file
-  // or am i
-
+  
   // alloc page in physical memory
   void *pa = kalloc();
+
   if (!pa)
-    panic("fack kalloc failed in page_in");  
+    panic("page in: fack kalloc failed in page_in");
+  memset(pa, 0, PGSIZE);
+
   readFromSwapFile(p, pa, start_offset, PGSIZE);
 
   // update pte
-  *pte = PA2PTE(pa) | PTE_V | PTE_PG;
+  if (!(*pte & PTE_PG) || *pte & PTE_V)
+    panic("page in: page out flag was off or valid flag was on");
+  *pte = PA2PTE(pa) ^ PTE_V ^ PTE_PG;
+  p->physical_pages_num++;
+
+  return pte;
 }
 
-// struct page_swap_info{  
-//   uint64 va;                      // Virtual address of page (used as identifier)
-//   int index;                      // Index of page location in swap file (index*sizeof(page) == offset). if not paged out index=-1  
-// };
+void copyFilesInfo(struct proc *p, struct proc *np)
+{
+  // Copy swapfile
+  void *temp_page;
+  if (!(temp_page = kalloc()))
+    panic("copyFilesInfo: kalloc failed");
+  for (int i = 0; i < MAX_PSYC_PAGES; i++)
+  {
+    int res = readFromSwapFile(p, (char *)temp_page, i * PGSIZE, PGSIZE);
+    if (res < 0)
+      panic("copyFilesInfo: failed read");
 
-// struct pages_swap_info{
-//   uint16 free_spaces;           // Bit array indicating which entiries in swapfile are free
-//   struct page_swap_info pages[MAX_TOTAL_PAGES];  //Keep information about each page in or out the swap file
-// };
+    res = writeToSwapFile(np, temp_page, i * PGSIZE, PGSIZE);
+    if (res < 0)
+      panic("copyFilesInfo: faild write ");
+  }
+  kfree(temp_page);
+
+  // Copy swap struct
+  np->pages_swap_info.free_spaces=p->pages_swap_info.free_spaces;
+  for(int i=0;i<MAX_PSYC_PAGES;i++){
+    np->pages_swap_info.pages[i] = p->pages_swap_info.pages[i];
+  }
+  // Copy ram struct
+  np->pages_physc_info.free_spaces=p->pages_physc_info.free_spaces;
+  for(int i=0;i<MAX_PSYC_PAGES;i++){
+    np->pages_physc_info.pages[i] = p->pages_physc_info.pages[i];
+  }
+}

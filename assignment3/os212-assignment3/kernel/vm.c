@@ -5,7 +5,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
-
+#include "proc.h"
 /*
  * the kernel's page table.
  */
@@ -123,8 +123,8 @@ walkaddr(pagetable_t pagetable, uint64 va, int to_page_out)
   if(to_page_out){  // case we are paging out need to update flags in pte
     if (!(*pte & PTE_V))
       panic("walkaddr: fack pte is not valid ");
-    *pte ^= (1 << PTE_V);     // page table entry now invalid
-    *pte |= (1 << PTE_PG);    // paged out to secondary storage
+    *pte ^= PTE_V;     // page table entry now invalid
+    *pte |= PTE_PG;    // paged out to secondary storage
 
   }
   return pa;
@@ -174,6 +174,7 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 {
   uint64 a;
   pte_t *pte;
+  struct proc *p = myproc();
 
   if((va % PGSIZE) != 0)
     panic("uvmunmap: not aligned");
@@ -190,6 +191,9 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
       kfree((void*)pa);
     }
     *pte = 0;
+    if(SELECTION !=NONE && p->pid >2)
+      remove_page_from_physical_memory(a);  // Update our physical memory data structure
+    // TODO check if need to move files to swapfile
   }
 }
 
@@ -228,13 +232,26 @@ uint64
 uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 {
   char *mem;
+  struct proc *p = myproc();
   uint64 a;
 
   if(newsz < oldsz)
     return oldsz;
-
+  
   oldsz = PGROUNDUP(oldsz);
   for(a = oldsz; a < newsz; a += PGSIZE){
+    if (SELECTION != NONE && p->pid > 2)
+    {
+      if(p->total_pages_num >=MAX_TOTAL_PAGES)
+        panic("uvmalloc: proc out of space!");
+      while(p->physical_pages_num > MAX_PSYC_PAGES){
+        // va = select_page_for_pageout(); TODO: change back
+        // proc has max pages in physical memory -> need to page out some pages
+        uint va = 5;
+        page_out(va);
+      }      
+    }
+
     mem = kalloc();
     if(mem == 0){
       uvmdealloc(pagetable, a, oldsz);
@@ -246,6 +263,11 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
       uvmdealloc(pagetable, a, oldsz);
       return 0;
     }
+    if (SELECTION != NONE && p->pid > 2){
+      // update physc mem struct
+      insert_page_to_physical_memory(a);
+    }
+
   }
   return newsz;
 }
@@ -438,4 +460,33 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   } else {
     return -1;
   }
+}
+
+// Update data structure
+int insert_page_to_physical_memory(uint64 a)
+{
+  struct proc *p = myproc();
+  int free_index = get_index_in_page_info_array(a, p->pages_physc_info.pages);
+  if (free_index < 0 || free_index >= MAX_PSYC_PAGES)
+    panic("uvmalloc: no free index in physc arr");
+  p->pages_physc_info.pages[free_index].va = a;                // Set va of page
+  p->pages_physc_info.pages[free_index].time_inserted = ticks; //  Update insertion time
+  if (p->pages_physc_info.free_spaces & (1 << free_index))
+    panic("page_in: tried to set free space flag when it is already set");
+  p->pages_physc_info.free_spaces |= (1 << free_index); // Mark space as occupied
+  p->physical_pages_num++;
+  p->total_pages_num++;
+  return 0;
+}
+
+// Update data structure
+int remove_page_from_physical_memory(uint64 a)
+{
+  struct proc *p = myproc();
+  int index = get_index_in_page_info_array(a, p->pages_physc_info.pages);
+  if (!(p->pages_physc_info.free_spaces & (1 << index)))
+    panic("uvmunmap: free space flag should be set but is unset");
+  p->pages_physc_info.free_spaces ^= (1 << index);
+  p->physical_pages_num--;
+  p->total_pages_num--;
 }

@@ -59,6 +59,8 @@ int	          	readFromSwapFile(struct proc * p, char* buffer, uint placeOnFile,
 int		        writeToSwapFile(struct proc* p, char* buffer, uint placeOnFile, uint size);
 int		        removeSwapFile(struct proc* p);
 uint64          page_out(uint64 va);
+pte_t*          page_in(uint64 va,pte_t* pte);
+void            copyFilesInfo(struct proc *p, struct proc *np);
 
 // ramdisk.c
 void            ramdiskinit(void);
@@ -112,9 +114,8 @@ int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 // Task3
-int             next_free_space_in_swap_file();
-uint64          where_in_swap_file(uint64 va);
-struct page_swap_info * get_page_swap_info(uint64 va);
+int             next_free_space();
+int             get_index_in_page_info_array(uint64 va,  struct page_info *arr);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
@@ -160,7 +161,7 @@ void            trapinit(void);
 void            trapinithart(void);
 extern struct spinlock tickslock;
 void            usertrapret(void);
-
+extern enum pagingpolicy SELECTION;
 // uart.c
 void            uartinit(void);
 void            uartintr(void);
@@ -185,6 +186,9 @@ uint64          walkaddr(pagetable_t, uint64,int);
 int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
+pte_t *         walk(pagetable_t pagetable, uint64 va, int alloc);
+int             insert_page_to_physical_memory(uint64 a);
+int             remove_page_from_physical_memory(uint64 a);
 
 // plic.c
 void            plicinit(void);
@@ -199,3 +203,6 @@ void            virtio_disk_intr(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+
+enum pagingpolicy { SCFIFO,NFUA ,LAPA,NONE};

@@ -80,6 +80,7 @@ struct trapframe {
   /* 280 */ uint64 t6;
 };
 
+
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Proc Pages Section
@@ -87,14 +88,20 @@ enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 #define MAX_TOTAL_PAGES 32
 #define MAX_PSYC_PAGES 16
 
-struct page_swap_info{  
+struct page_info{  
   uint64 va;                      // Virtual address of page (used as identifier)
-  int index;                      // Index of page location in swap file (index*sizeof(page) == offset). if not paged out index=-1  
+  uint aging_counter;
+  uint time_inserted;
 };
 
 struct pages_swap_info{
   uint16 free_spaces;           // Bit array indicating which entiries in swapfile are free
-  struct page_swap_info pages[MAX_TOTAL_PAGES];  //Keep information about each page in or out the swap file
+  struct page_info pages[MAX_PSYC_PAGES];  //Keep information about each page in or out the swap file  
+};
+
+struct pages_physc_info{
+  uint16 free_spaces;           // Bit array indicating which entiries in swapfile are free
+  struct page_info pages[MAX_PSYC_PAGES];  //Keep information about each page in or out the swap file
 };
 
 // Per-process state
@@ -126,4 +133,5 @@ struct proc {
   int physical_pages_num;      // num of pages in physical memory for p
   int total_pages_num;         // num of pages in physical and virtual memory for p
   struct pages_swap_info pages_swap_info;
+  struct pages_physc_info pages_physc_info;
 };

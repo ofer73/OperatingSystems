@@ -8,7 +8,7 @@
 #include "spinlock.h"
 #include "riscv.h"
 #include "defs.h"
-
+a
 void freerange(void *pa_start, void *pa_end);
 
 extern char end[]; // first address after kernel.
