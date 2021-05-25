@@ -5,7 +5,9 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
 #include "proc.h"
+
 /*
  * the kernel's page table.
  */
@@ -174,7 +176,6 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 {
   uint64 a;
   pte_t *pte;
-  struct proc *p = myproc();
 
   if((va % PGSIZE) != 0)
     panic("uvmunmap: not aligned");
@@ -191,8 +192,10 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
       kfree((void*)pa);
     }
     *pte = 0;
-    if(SELECTION !=NONE && p->pid >2)
+    #ifndef NONE
+    if(myproc()->pid >2)
       remove_page_from_physical_memory(a);  // Update our physical memory data structure
+    #endif
     // TODO check if need to move files to swapfile
   }
 }
@@ -240,7 +243,8 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
   
   oldsz = PGROUNDUP(oldsz);
   for(a = oldsz; a < newsz; a += PGSIZE){
-    if (SELECTION != NONE && p->pid > 2)
+    #ifndef NONE
+    if (p->pid > 2)
     {
       if(p->total_pages_num >=MAX_TOTAL_PAGES)
         panic("uvmalloc: proc out of space!");
@@ -251,6 +255,7 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
         page_out(va);
       }      
     }
+    #endif
 
     mem = kalloc();
     if(mem == 0){
@@ -263,11 +268,12 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
       uvmdealloc(pagetable, a, oldsz);
       return 0;
     }
-    if (SELECTION != NONE && p->pid > 2){
+    #ifndef NONE
+    if (p->pid > 2){
       // update physc mem struct
       insert_page_to_physical_memory(a);
     }
-
+    #endif
   }
   return newsz;
 }
@@ -471,11 +477,13 @@ int insert_page_to_physical_memory(uint64 a)
     panic("uvmalloc: no free index in physc arr");
   p->pages_physc_info.pages[free_index].va = a;                // Set va of page
   p->pages_physc_info.pages[free_index].time_inserted = ticks; //  Update insertion time
+  reset_aging_counter(&p->pages_physc_info.pages[free_index]);
   if (p->pages_physc_info.free_spaces & (1 << free_index))
     panic("page_in: tried to set free space flag when it is already set");
   p->pages_physc_info.free_spaces |= (1 << free_index); // Mark space as occupied
   p->physical_pages_num++;
   p->total_pages_num++;
+
   return 0;
 }
 
@@ -489,4 +497,5 @@ int remove_page_from_physical_memory(uint64 a)
   p->pages_physc_info.free_spaces ^= (1 << index);
   p->physical_pages_num--;
   p->total_pages_num--;
+  return 0;
 }

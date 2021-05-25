@@ -8,6 +8,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct page_info;
 
 // bio.c
 void            binit(void);
@@ -113,9 +114,21 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+
 // Task3
-int             next_free_space();
+int             next_free_space(uint16 free_spaces);
 int             get_index_in_page_info_array(uint64 va,  struct page_info *arr);
+//Task3 paging policy
+int                 compare_all_pages(int (*compare)(struct page_info *pg1, struct page_info *pg2));
+int                 countOnes(uint n);
+int                 SCFIFO_compare(struct page_info *pg1, struct page_info *pg2);
+int                 LAPA_compare(struct page_info *pg1, struct page_info *pg2);
+int                 NFUA_compare(struct page_info *pg1, struct page_info *pg2);
+int                 get_next_page_to_swap_out();
+void                update_pages_info();
+void                update_NFUA_LAPA_counter(struct page_info *pg);
+int                 is_accessed(struct page_info *pg, int to_reset);
+void                reset_aging_counter(struct page_info *pg);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
@@ -161,7 +174,7 @@ void            trapinit(void);
 void            trapinithart(void);
 extern struct spinlock tickslock;
 void            usertrapret(void);
-extern enum pagingpolicy SELECTION;
+
 // uart.c
 void            uartinit(void);
 void            uartintr(void);
@@ -205,4 +218,3 @@ void            virtio_disk_intr(void);
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 
 
-enum pagingpolicy { SCFIFO,NFUA ,LAPA,NONE};

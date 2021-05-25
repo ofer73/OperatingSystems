@@ -9,21 +9,7 @@
 struct spinlock tickslock;
 uint ticks;
 
-enum pagingpolicy SELECTION;
-// select pages by
-#ifdef SCFIFO
-  printf("SCFIFO paging policy active\n");
-  SELECTION=SCFIFO;
-#elif  NFUA
-  printf("NFUA paging policy active\n");
-  SELECTION=NFUA;
-#elif  LAPA
-  printf("LAPA paging policy active\n");
-  SELECTION=LAPA;
-#elif  NONE
-  printf("DEFUALT paging policy active\n");
-  SELECTION=NONE;
-#endif
+// enum pagingpolicy SELECTION;
 
 extern char trampoline[], uservec[], userret[];
 
@@ -63,7 +49,6 @@ void usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   uint64 trap_cause = r_scause();
-  pte_t *pte_new=0;
 
   if (trap_cause == 8)
   {
@@ -86,31 +71,42 @@ void usertrap(void)
   else if (trap_cause == 13 || trap_cause == 15)
   {
     struct proc *p = myproc();
-  
+
     printf("inside page fault usertrap\n"); //TODO delete
     // Page fault
     uint64 fault_va = r_stval();
     uint64 fault_rva = PGROUNDDOWN(fault_va);
-    pte_t *pte = walk(p->pagetable, fault_rva ,0);
-    if(!pte || p->pid<=2){//||SELECTION==0){
-      printf("seg fault with pid=%d",p->pid);
-      panic("segmentation fault oh nooooo");
+    pte_t *pte = walk(p->pagetable, fault_rva, 0);
+    
+    if (!pte || p->pid <= 2)
+    {
+      printf("seg fault with pid=%d", p->pid);
+      panic("usertrap: segmentation fault oh nooooo"); // TODO check if need to kill just the current procces
     }
-   
-    else if(*pte & PTE_PG && !(*pte & PTE_V)){
-      // Valid page out
-      if (p->physical_pages_num >= MAX_PSYC_PAGES){
-        // Need to page out first
-        // TODO: insert paging out logic here: select page -> page out
-        // free_space_in_phisical_mem();
-      }
-      pte_new = page_in(fault_rva, pte);
-    }
-    else if(*pte & PTE_V){
-      // Valid page is not yet allocated
-      // TODO: complete
-      
 
+    #ifdef NONE
+    printf("seg fault with pid=%d", p->pid);
+    panic("usertrap: segmentation fault on NONE"); // TODO check if need to kill just the current procces
+    #endif
+
+
+    if (*pte & PTE_PG && !(*pte & PTE_V))
+    {
+      // Page is in swap file
+      if (p->physical_pages_num >= MAX_PSYC_PAGES)
+      {
+        // Need to page out first
+        int page_to_swap_out_index = get_next_page_to_swap_out();
+        uint64 va = p->pages_swap_info.pages[page_to_swap_out_index].va;
+        uint64 pa = page_out(va);
+        printf("paged out page with va = %p pa = %p\n", va, pa); //TODO delete
+      }
+        pte_t *pte_new = page_in(fault_rva, pte);
+        printf("usertrap: pte_new = %p", pte_new); // TODO delete
+    }
+    else if (*pte & PTE_V)
+    {
+      panic("usertrap: PTE_V should not be valid during page_fault"); //TODO: check if needed/true
     }
   }
 
