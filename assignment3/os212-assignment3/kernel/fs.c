@@ -700,6 +700,8 @@ char* itoa(int i, char b[]){
 int
 removeSwapFile(struct proc* p)
 {
+    printf("in RemoveSwapFile\n"); //TODO: delete
+
   //path of proccess
   char path[DIGITS];
   memmove(path,"/.swap", 6);
@@ -761,6 +763,7 @@ removeSwapFile(struct proc* p)
     iunlockput(dp);
     end_op();
     return -1;
+    printf("end RemoveSwapFile\n"); //TODO: delete
 
 }
 
@@ -769,17 +772,15 @@ removeSwapFile(struct proc* p)
 int
 createSwapFile(struct proc* p)
 {
-
   char path[DIGITS];
   memmove(path,"/.swap", 6);
   itoa(p->pid, path+ 6);
 
   begin_op();
-  
+
   struct inode * in = create(path, T_FILE, 0, 0);
   iunlock(in);
-  p->swapFile = filealloc();
-  if (p->swapFile == 0)
+  p->swapFile = filealloc();  if (p->swapFile == 0)
     panic("no slot for files on /store");
 
   p->swapFile->ip = in;

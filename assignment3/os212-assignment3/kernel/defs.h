@@ -114,9 +114,11 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+void            print_pages_from_info_arrs(void);
+
 
 // Task3
-int             next_free_space(uint16 free_spaces);
+int             get_next_free_space(uint16 free_spaces);
 int             get_index_in_page_info_array(uint64 va,  struct page_info *arr);
 //Task3 paging policy
 int                 compare_all_pages(int (*compare)(struct page_info *pg1, struct page_info *pg2));
@@ -200,8 +202,10 @@ int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
 pte_t *         walk(pagetable_t pagetable, uint64 va, int alloc);
+int             insert_page_to_swap_file(uint64 a);
 int             insert_page_to_physical_memory(uint64 a);
 int             remove_page_from_physical_memory(uint64 a);
+int             remove_page_from_swap_file(uint64 a);
 
 // plic.c
 void            plicinit(void);

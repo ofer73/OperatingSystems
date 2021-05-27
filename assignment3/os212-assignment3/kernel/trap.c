@@ -97,7 +97,9 @@ void usertrap(void)
       {
         // Need to page out first
         int page_to_swap_out_index = get_next_page_to_swap_out();
-        uint64 va = p->pages_swap_info.pages[page_to_swap_out_index].va;
+        if(page_to_swap_out_index <0 || page_to_swap_out_index > MAX_PSYC_PAGES)
+          panic("usertrap: did not find page to swap out");
+        uint64 va = p->pages_physc_info.pages[page_to_swap_out_index].va;
         uint64 pa = page_out(va);
         printf("paged out page with va = %p pa = %p\n", va, pa); //TODO delete
       }
