@@ -128,7 +128,7 @@ walkaddr(pagetable_t pagetable, uint64 va, int to_page_out)
   { // case we are paging out need to update flags in pte
     if (!(*pte & PTE_V))
       panic("walkaddr: fack pte is not valid ");
-    *pte ^= PTE_V;  // page table entry now invalid
+    *pte &= ~PTE_V;  // page table entry now invalid
     *pte |= PTE_PG; // paged out to secondary storage
   }
   return pa;
@@ -174,7 +174,6 @@ int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 // Optionally free the physical memory.
 void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 {
-  printf("uvmunmap... va = %d dofree = %d\n", va,do_free); // TODO delete
   uint64 a;
   pte_t *pte;
   struct proc *p = myproc();
@@ -187,15 +186,22 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     if ((pte = walk(pagetable, a, 0)) == 0)
       panic("uvmunmap: walk");
     if ((*pte & PTE_V) == 0){
-      if((*pte & PTE_PG) && p->pid>2){  // page is swapped out
-        remove_page_from_swap_file(a);
-        *pte = 0;
+      #ifndef NONE
+      if((*pte & PTE_PG)  && pagetable == p->pagetable){  // page is swapped out
+        if(remove_page_from_swap_file(a)<0)
+          panic("uvmunmap: cant find file bos");
+        // *pte = 0; //TODO: check
         p->total_pages_num--;
         continue;
       }
-      else{
+      else if(!(*pte & PTE_PG)){
+        print_pages_from_info_arrs();
         panic("uvmunmap: not mapped");
       }
+
+      continue;
+      #endif
+      panic("uvmunmap: not mapped");
     }
 
     // pte is valid -> page in ram
@@ -206,7 +212,7 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
       uint64 pa = PTE2PA(*pte);
       kfree((void *)pa);
 #ifndef NONE
-      if (myproc()->pid > 2)
+      if (myproc()->pid > 2 && pagetable == p->pagetable)
       {
         // Update our physical memory data structure
         if (remove_page_from_physical_memory(a) >= 0)
@@ -216,10 +222,9 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
         }
         else
         {
-          printf("not found va = %p,pid=%d\n", a,p->pid);
           print_pages_from_info_arrs();
           // Check if page in swapfile
-          panic("uvmunmap: page not found in physical mem or swapfile");
+          // panic("uvmunmap: page not found in physical mem or swapfile");
         }
       }
 #endif
@@ -261,7 +266,6 @@ void uvminit(pagetable_t pagetable, uchar *src, uint sz)
 uint64
 uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 {
-  printf("uvmalloc...oldsize = %d newsize = %d\n", oldsz, newsz);
   char *mem;
   struct proc *p = myproc();
   uint64 a;
@@ -277,9 +281,9 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
     {
       if (p->total_pages_num >= MAX_TOTAL_PAGES)
         panic("uvmalloc: proc out of space!");
+      // swap out some pages 
       while (p->physical_pages_num >= MAX_PSYC_PAGES)
       {
-        printf("inside while loop for page out in uvmalloc");
         // proc has max pages in physical memory -> need to page out some pages
         int i = get_next_page_to_swap_out();
         if (i < 0 || i >= MAX_PSYC_PAGES){
@@ -287,7 +291,7 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
           panic("uvmalloc: did not find the page to swap out!");
         }
         uint64 rva = p->pages_physc_info.pages[i].va;
-        printf("about to call page_out from uvmalloc with rva = %p, index in arry = %d\n", rva, i);
+        printf("calling page out from uvmalloc for pageing out va=%d\n ",i);
         page_out(rva);
       }
     }
@@ -326,7 +330,6 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 uint64
 uvmdealloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 {
-  printf("uvmdealloc...\n"); // TODO delete
   if (newsz >= oldsz)
     return oldsz;
 
@@ -366,7 +369,6 @@ void freewalk(pagetable_t pagetable)
 // then free page-table pages.
 void uvmfree(pagetable_t pagetable, uint64 sz)
 {
-  printf("uvmfree...pid = %d\n",myproc()->pid); // TODO delete
   if (sz > 0)
     uvmunmap(pagetable, 0, PGROUNDUP(sz) / PGSIZE, 1);
   freewalk(pagetable);
@@ -380,8 +382,8 @@ void uvmfree(pagetable_t pagetable, uint64 sz)
 // frees any allocated pages on failure.
 int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 {
-  printf("uvmcopy...,pid = %d\n",myproc()->pid);
   pte_t *pte;
+  pte_t *np_pte;
   uint64 pa, i;
   uint flags;
   char *mem;
@@ -390,8 +392,19 @@ int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   {
     if ((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
-    if ((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
+    if ((*pte & PTE_V) == 0){
+    #ifndef NONE
+      if(!(*pte & PTE_PG))
+        panic("uvmcopy: page not present");
+         
+      // page is paged out, still need to copy entry
+      if((np_pte = walk(new, i, 1)) == 0)
+        return -1;
+      *np_pte = *pte; 
+      continue;
+    #endif
+    panic("uvmcopy: page not present");
+    }
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if ((mem = kalloc()) == 0)
@@ -414,7 +427,6 @@ err:
 // used by exec for the user stack guard page.
 void uvmclear(pagetable_t pagetable, uint64 va)
 {
-  printf("uvmclear...\n"); // TODO delete
 
   pte_t *pte;
 
@@ -429,13 +441,11 @@ void uvmclear(pagetable_t pagetable, uint64 va)
 // Return 0 on success, -1 on error.
 int copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
-  printf("copyout... va = %p, pid = %d\n",dstva, myproc()->pid);
   uint64 n, va0, pa0;
 
   while (len > 0)
   {
     va0 = PGROUNDDOWN(dstva);
-    printf("va0 = %p\n",va0);
     pa0 = walkaddr(pagetable, va0, 0);
     if (pa0 == 0)
       return -1;
@@ -528,7 +538,6 @@ int copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 // Update data structure
 int insert_page_to_swap_file(uint64 a)
 {
-  printf("insert_page_to_swap_file... va = %p , pid = %d\n",a,myproc()->pid);
   struct proc *p = myproc();
   int free_index = get_next_free_space(p->pages_swap_info.free_spaces);
   if (free_index < 0 || free_index >= MAX_PSYC_PAGES)
@@ -544,13 +553,13 @@ int insert_page_to_swap_file(uint64 a)
 // Update data structure
 int insert_page_to_physical_memory(uint64 a)
 {
-  printf("insert_page_to_physical_memory... va=%p, pid = %d\n",a,myproc()->pid);
   struct proc *p = myproc();
   int free_index = get_next_free_space(p->pages_physc_info.free_spaces);
   if (free_index < 0 || free_index >= MAX_PSYC_PAGES)
     panic("insert_phys: no free index in physc arr");
   p->pages_physc_info.pages[free_index].va = a;                // Set va of page
-  p->pages_physc_info.pages[free_index].time_inserted = ticks; //  Update insertion time
+  p->pages_physc_info.pages[free_index].time_inserted = p->paging_time; //  Update insertion time
+  p->paging_time++;
   reset_aging_counter(&p->pages_physc_info.pages[free_index]);
   if (p->pages_physc_info.free_spaces & (1 << free_index))
     panic("insert_phys: tried to set free space flag when it is already set");
@@ -562,7 +571,6 @@ int insert_page_to_physical_memory(uint64 a)
 // Update data structure
 int remove_page_from_physical_memory(uint64 a)
 {
-  printf("remove_page_from_physical_memory va = %p pid=%d...\n",a,myproc()->pid);
   struct proc *p = myproc();
   int index = get_index_in_page_info_array(a, p->pages_physc_info.pages);
   if (index < 0 || index >= MAX_PSYC_PAGES)
@@ -578,7 +586,6 @@ int remove_page_from_physical_memory(uint64 a)
 // Update data structure
 int remove_page_from_swap_file(uint64 a)
 {
-  printf("remove_page_from_swap_file, va =%p pid = %d ...\n",a,myproc()->pid);
   struct proc *p = myproc();
   int index = get_index_in_page_info_array(a, p->pages_swap_info.pages);
   if (index < 0 || index >= MAX_PSYC_PAGES)

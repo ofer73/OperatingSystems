@@ -101,7 +101,7 @@ enum procstate
 struct page_info
 {
   uint64 va; // Virtual address of page (used as identifier)
-  uint aging_counter;
+  uint32 aging_counter;
   uint time_inserted;
 };
 
@@ -148,5 +148,6 @@ struct proc
   int total_pages_num;    // num of pages in physical and virtual memory for p
   struct pages_swap_info pages_swap_info;
   struct pages_physc_info pages_physc_info;
+  uint64 paging_time;
 };
 

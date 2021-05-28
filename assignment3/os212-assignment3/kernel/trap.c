@@ -72,7 +72,7 @@ void usertrap(void)
   {
     struct proc *p = myproc();
 
-    printf("inside page fault usertrap\n"); //TODO delete
+    // printf("inside page fault usertrap\n"); //TODO delete
     // Page fault
     uint64 fault_va = r_stval();
     uint64 fault_rva = PGROUNDDOWN(fault_va);
@@ -88,23 +88,29 @@ void usertrap(void)
     printf("seg fault with pid=%d", p->pid);
     panic("usertrap: segmentation fault on NONE"); // TODO check if need to kill just the current procces
     #endif
+    printf("8====D\n");
+    printf("10.pte_v = %d, pte_pg= %d\n", (*pte & PTE_V) > 0, (*pte & PTE_PG)>0);
 
-
-    if (*pte & PTE_PG && !(*pte & PTE_V))
+    if ((*pte & PTE_PG) && !(*pte & PTE_V))
     {
       // Page is in swap file
+      printf("debug: segfault bringing page from swapfile\n");
       if (p->physical_pages_num >= MAX_PSYC_PAGES)
       {
         // Need to page out first
         int page_to_swap_out_index = get_next_page_to_swap_out();
-        if(page_to_swap_out_index <0 || page_to_swap_out_index > MAX_PSYC_PAGES)
+        if (page_to_swap_out_index < 0 || page_to_swap_out_index > MAX_PSYC_PAGES)
           panic("usertrap: did not find page to swap out");
         uint64 va = p->pages_physc_info.pages[page_to_swap_out_index].va;
+        printf("11.pte_v = %d, pte_pg= %d\n", (*pte & PTE_V) > 0, (*pte & PTE_PG)>0);
+
         uint64 pa = page_out(va);
-        printf("paged out page with va = %p pa = %p\n", va, pa); //TODO delete
+         printf("12.pte_v = %d, pte_pg= %d\n", (*pte & PTE_V) > 0, (*pte & PTE_PG)>0);
+
+        printf("usertrap: paged out page with va = %p pa = %p\n", va, pa); //TODO delete
       }
-        pte_t *pte_new = page_in(fault_rva, pte);
-        printf("usertrap: pte_new = %p", pte_new); // TODO delete
+      pte_t *pte_new = page_in(fault_rva, pte);
+      printf("usertrap: pte_new = %p\n", pte_new); // TODO delete
     }
     else if (*pte & PTE_V)
     {
