@@ -139,6 +139,7 @@ walkaddr(pagetable_t pagetable, uint64 va, int to_page_out)
 // does not flush TLB or enable paging.
 void kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm)
 {
+
   if (mappages(kpgtbl, va, sz, pa, perm) != 0)
     panic("kvmmap");
 }
@@ -149,6 +150,7 @@ void kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm)
 // allocate a needed page-table page.
 int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 {
+
   uint64 a, last;
   pte_t *pte;
 
@@ -174,6 +176,7 @@ int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 // Optionally free the physical memory.
 void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 {
+
   uint64 a;
   pte_t *pte;
   struct proc *p = myproc();
@@ -195,7 +198,6 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
         continue;
       }
       else if(!(*pte & PTE_PG)){
-        print_pages_from_info_arrs();
         panic("uvmunmap: not mapped");
       }
 
@@ -222,7 +224,7 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
         }
         else
         {
-          print_pages_from_info_arrs();
+         
           // Check if page in swapfile
           // panic("uvmunmap: page not found in physical mem or swapfile");
         }
@@ -266,6 +268,7 @@ void uvminit(pagetable_t pagetable, uchar *src, uint sz)
 uint64
 uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 {
+
   char *mem;
   struct proc *p = myproc();
   uint64 a;
@@ -291,7 +294,6 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
           panic("uvmalloc: did not find the page to swap out!");
         }
         uint64 rva = p->pages_physc_info.pages[i].va;
-        printf("calling page out from uvmalloc for pageing out va=%d\n ",i);
         page_out(rva);
       }
     }
@@ -320,6 +322,7 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
     }
 #endif
   }
+
   return newsz;
 }
 
@@ -382,6 +385,7 @@ void uvmfree(pagetable_t pagetable, uint64 sz)
 // frees any allocated pages on failure.
 int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 {
+
   pte_t *pte;
   pte_t *np_pte;
   uint64 pa, i;
@@ -442,7 +446,6 @@ void uvmclear(pagetable_t pagetable, uint64 va)
 int copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
-
   while (len > 0)
   {
     va0 = PGROUNDDOWN(dstva);
@@ -458,6 +461,7 @@ int copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     src += n;
     dstva = va0 + PGSIZE;
   }
+
   return 0;
 }
 
@@ -466,6 +470,7 @@ int copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 // Return 0 on success, -1 on error.
 int copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 {
+
   uint64 n, va0, pa0;
 
   while (len > 0)
@@ -483,6 +488,7 @@ int copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
     dst += n;
     srcva = va0 + PGSIZE;
   }
+
   return 0;
 }
 
@@ -560,7 +566,8 @@ int insert_page_to_physical_memory(uint64 a)
   p->pages_physc_info.pages[free_index].va = a;                // Set va of page
   p->pages_physc_info.pages[free_index].time_inserted = p->paging_time; //  Update insertion time
   p->paging_time++;
-  reset_aging_counter(&p->pages_physc_info.pages[free_index]);
+  reset_aging_counter(&(p->pages_physc_info.pages[free_index]));
+
   if (p->pages_physc_info.free_spaces & (1 << free_index))
     panic("insert_phys: tried to set free space flag when it is already set");
   p->pages_physc_info.free_spaces |= (1 << free_index); // Mark space as occupied

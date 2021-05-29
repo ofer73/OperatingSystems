@@ -85,7 +85,6 @@ int exec(char *path, char **argv)
     sp -= sp % 16; // riscv sp must be 16-byte aligned
     if (sp < stackbase)
       goto bad;
-    printf("copyout in exec 1\n"); //TODO: delete
     if (copyout(pagetable, sp, argv[argc], strlen(argv[argc]) + 1) < 0)
       goto bad;
     ustack[argc] = sp;
@@ -97,7 +96,6 @@ int exec(char *path, char **argv)
   sp -= sp % 16;
   if (sp < stackbase)
     goto bad;
-  printf("copyout in exec 2\n"); //TODO: delete
   if (copyout(pagetable, sp, (char *)ustack, (argc + 1) * sizeof(uint64)) < 0)
     goto bad;
 
@@ -118,9 +116,7 @@ int exec(char *path, char **argv)
   p->sz = sz;
   p->trapframe->epc = elf.entry; // initial program counter = main
   p->trapframe->sp = sp;         // initial stack pointer
-  printf("before freepagetable\n");
   proc_freepagetable(oldpagetable, oldsz); // also remove swapfile
-  printf("after freepagetable\n");
 
   //clear structs
   if(p->pid >2){

@@ -296,7 +296,6 @@ int fork(void)
   {
     return -1;
   }
-
   // Copy user memory from parent to child.
   if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0)
   {
@@ -324,12 +323,11 @@ int fork(void)
 
   release(&np->lock);
 
-
   // TASK3
   createSwapFile(np);
 
   // if(p->pid >2 )
-  copyFilesInfo(p, np); // TODO: check we need to this for father 1,2 
+    copyFilesInfo(p, np); // TODO: check we need to this for father 1,2 
 
   np->physical_pages_num = p->physical_pages_num;
   np->total_pages_num = p->total_pages_num;
@@ -480,7 +478,7 @@ void scheduler(void)
     intr_on();
 
     for (p = proc; p < &proc[NPROC]; p++)
-    {
+    {      
       acquire(&p->lock);
       if (p->state == RUNNABLE)
       {
@@ -722,7 +720,6 @@ int get_index_in_page_info_array(uint64 va, struct page_info *arr)
   for (int i = 0; i < MAX_PSYC_PAGES;i++)
   {
     struct page_info *po = &arr[i];
-    // printf("getPageIndex: in for loop: po->va = %p\n",po->va);
     if (po->va == rva)
     {
       return i;
@@ -739,7 +736,6 @@ uint64
 page_out(uint64 va)
 {
   struct proc *p = myproc();
-  printf("1 %d\n",p->pid);
 
   uint64 rva = PGROUNDDOWN(va);
 
@@ -760,7 +756,6 @@ page_out(uint64 va)
   
   // free space in physical memory
   kfree((void *)pa);
-  printf("end of pae out pid = %d\n",p->pid);
   return pa;
 }
 
@@ -776,30 +771,27 @@ page_in(uint64 va, pte_t *pte)
   if(swap_old_index <0)
     panic("page_in: index in swap file not found");
 
-  // update physc info
-  int physc_new_index = insert_page_to_physical_memory(rva);
-  p->physical_pages_num++;
-
   // alloc page in physical memory
   if ((pa = (uint64)kalloc()) == 0){
     printf("retrievingpage: kalloc failed\n");
     return -1;
   }
-    printf("1.pte_v = %d, pte_pg= %d\n", (*pte & PTE_V) > 0, (*pte & PTE_PG)>0);
+
   mappages(p->pagetable, va, PGSIZE, (uint64)pa, PTE_FLAGS(*pte));
-    printf("2.pte_v = %d, pte_pg= %d\n", (*pte & PTE_V) > 0, (*pte & PTE_PG)>0);
+
+
+    // update physc info
+  int physc_new_index = insert_page_to_physical_memory(rva);
+  p->physical_pages_num++;
 
   // Write to swap file
   int start_offset = swap_old_index * PGSIZE;
   readFromSwapFile(p, (char*)pa, start_offset, PGSIZE);
-    printf("3.pte_v = %d, pte_pg= %d\n", (*pte & PTE_V) > 0, (*pte & PTE_PG)>0);
 
   // update pte
   if (!(*pte & PTE_PG))
     panic("page in: page out flag was off");
   *pte = (*pte | PTE_V) &(~PTE_PG);
-  printf("3.pte_v = %d, pte_pg= %d\n", (*pte & PTE_V) > 0, (*pte & PTE_PG)>0);
-
 
   return pte;
 }
@@ -879,19 +871,19 @@ int get_next_page_to_swap_out()
   return selected_pg_index;
 }
 
-int NFUA_compare(struct page_info *pg1, struct page_info *pg2)
+long NFUA_compare(struct page_info *pg1, struct page_info *pg2)
 {
   if (!pg1 || !pg2)
     panic("NFUA_compare : null input");
-
   return pg1->aging_counter - pg2->aging_counter;
 }
 
-int LAPA_compare(struct page_info *pg1, struct page_info *pg2)
+long LAPA_compare(struct page_info *pg1, struct page_info *pg2)
 {
   if (!pg1 || !pg2)
     panic("LAPA_compare : null input");
   int res = countOnes(pg1->aging_counter) - countOnes(pg2->aging_counter);
+
   if (res == 0)
     return pg1->aging_counter - pg2->aging_counter;
   return res;
@@ -905,7 +897,7 @@ int SCFIFO_compare(struct page_info *pg1, struct page_info *pg2)
   return pg1->time_inserted - pg2->time_inserted;
 }
 
-int countOnes(uint n)
+long countOnes(long n)
 {
   int count = 0;
   while (n)
@@ -917,24 +909,27 @@ int countOnes(uint n)
 }
 
 // Return the index of the page to swap out acording to paging policy
-int compare_all_pages(int (*compare)(struct page_info *pg1, struct page_info *pg2))
+int compare_all_pages(long (*compare)(struct page_info *pg1, struct page_info *pg2))
 {
   struct proc *p = myproc();
 
   printf("compare all pages:\n");
-  printf("1.page 0 has aging counter = %p\n",&p->pages_physc_info.pages[0].aging_counter);
   print_pages_from_info_arrs();
   
   struct page_info *pg_to_swap = 0;
   int min_index = -1;
-  printf("2.page 0 has aging counter = %p\n",&p->pages_physc_info.pages[0].aging_counter);
+
+  
 
   for (int i=0;i<MAX_PSYC_PAGES;i++)
   {
     struct page_info *pg = &p->pages_physc_info.pages[i];
+    // #ifdef NFUA
+    //   if(is_accessed(pg,1)>0)
+    //     pg->aging_counter |= 0x80000000;
+    // #endif
     if ((p->pages_physc_info.free_spaces & (1 << i)) && (!pg_to_swap || compare(pg, pg_to_swap) < 0))
     {
-      printf("page %d has aging counter = %p\n",i,pg->aging_counter);
       // in case pg_to_swap have not yet been initialize or the current pg is less needable acording to policy
       pg_to_swap = pg;
       min_index = i;
@@ -943,84 +938,43 @@ int compare_all_pages(int (*compare)(struct page_info *pg1, struct page_info *pg
   return min_index;
 }
 
-// void update_pages_info()
-// {
-
-// #ifdef NFUA
-//   struct page_info *pg;
-//   struct proc *p = myproc();
-
-//   for (pg = p->pages_physc_info.pages; pg <= &p->pages_physc_info.pages[MAX_PSYC_PAGES]; pg++)
-//     update_NFUA_LAPA_counter(pg);
-// #elif LAPA
-//   struct page_info *pg;
-//   struct proc *p = myproc();
-
-//   for (pg = p->pages_physc_info.pages; pg <= &p->pages_physc_info.pages[MAX_PSYC_PAGES]; pg++){
-//     update_NFUA_LAPA_counter(pg);
-//   }
-// #endif
-// }
-
-// void update_NFUA_LAPA_counter(struct page_info *pg)
-// {
-//   printf("update:\n ",pg);
-//   pg->aging_counter = (pg->aging_counter >> 1);
-//   if(is_accessed(pg,1)){
-//     printf("pg = %p ",pg);
-//     printf("aging_counter = %p \n",pg->aging_counter);
-//     pg->aging_counter =5;//|= (1 << 31); //TODO: right shift?
-//   }
-// }
-
-
-// int is_accessed(struct page_info *pg, int to_reset)
-// {
-//   struct proc *p = myproc();
-//   pte_t *pte = walk(p->pagetable, pg->va, 0);
-//   int accessed = (*pte & PTE_A);
-//   if(accessed)
-//     *pte &= ~PTE_A; // turn access bit off
-
-//   return accessed;
-// }
-// void reset_aging_counter(struct page_info *pg)
-// {
-//   #ifdef NFUA
-//     pg->aging_counter = 0;
-//   #elif LAPA
-//     pg->aging_counter = 0xFFFFFFFF;
-//   #endif
-// }
-
 void update_pages_info()
 {
 
 #ifdef NFUA
+
   struct page_info *pg;
   struct proc *p = myproc();
 
-  for (pg = p->pages_physc_info.pages; pg <= &p->pages_physc_info.pages[MAX_PSYC_PAGES]; pg++)
+  for (pg = p->pages_physc_info.pages; pg < &p->pages_physc_info.pages[MAX_PSYC_PAGES]; pg++){
     update_NFUA_LAPA_counter(pg);
+  }
+
 #elif LAPA
+
   struct page_info *pg;
   struct proc *p = myproc();
 
-  for (pg = p->pages_physc_info.pages; pg <= &p->pages_physc_info.pages[MAX_PSYC_PAGES]; pg++)
+  for (pg = p->pages_physc_info.pages; pg < &p->pages_physc_info.pages[MAX_PSYC_PAGES]; pg++){
     update_NFUA_LAPA_counter(pg);
+  }
+
 #endif
 }
 
 void update_NFUA_LAPA_counter(struct page_info *pg)
 {
-  pg->aging_counter = (pg->aging_counter >> 1) | (is_accessed(pg, 1) << 31);
+  long acc =(long)(is_accessed(pg, 1));
+  pg->aging_counter = (pg->aging_counter >> 1) ;
+  if(acc)
+    pg->aging_counter = pg->aging_counter | 0x80000000; // if page was accessed set MSB to 1
 }
 
-int is_accessed(struct page_info *pg, int to_reset)
+long is_accessed(struct page_info *pg, int to_reset)
 {
   struct proc *p = myproc();
   pte_t *pte = walk(p->pagetable, pg->va, 0);
-  int accessed = (*pte & PTE_A);
+  long accessed = (*pte & PTE_A);
   if (accessed && to_reset)
     *pte ^= PTE_A; // reset accessed flag
 
@@ -1029,22 +983,24 @@ int is_accessed(struct page_info *pg, int to_reset)
 void reset_aging_counter(struct page_info *pg)
 {
   #ifdef NFUA
-    pg->aging_counter = 0;
+    pg->aging_counter = 0x00000002;//TODO return to 0
+    // pg->aging_counter = 0;//TODO return to 0
+
   #elif LAPA
-    pg->aging_counter = ~0;
+    pg->aging_counter = 0xFFFFFFFF;
   #endif
 }
 
 void print_pages_from_info_arrs(){
   struct proc *p = myproc();
-  printf("\n physic pages \t\t\tswap file::\n");
-
+  printf("pid = %d\n",p->pid);
+  printf("\n physic pages \t\t\t\t\t\tswap file::\n");
+  printf("index\t(va used \t aging)\t\t\t\t(va , used)  \n ");
   for (int i = 0; i < MAX_PSYC_PAGES; i++){
-    printf("(%p , %d ,\t %p)\t\t(%p , %d)  \n ", p->pages_physc_info.pages[i].va, (p->pages_physc_info.free_spaces & (1 << i))>0,p->pages_physc_info.pages[i].aging_counter,
-    p->pages_swap_info.pages[i].va,p->pages_swap_info.free_spaces&(1<<i));
+    printf("%d:\t(%p , %d ,\t %p)\t\t(%p , %d)  \n ", i,p->pages_physc_info.pages[i].va, 
+      (p->pages_physc_info.free_spaces & (1 << i))>0,
+      p->pages_physc_info.pages[i].aging_counter,
+      p->pages_swap_info.pages[i].va,p->pages_swap_info.free_spaces&(1<<i));
   }
 
-  // printf("\n swap file:\n");
-  // for(int i=0;i<MAX_PSYC_PAGES;i++)
-  //   printf("(%p , %d)\n ",p->pages_swap_info.pages[i].va,p->pages_swap_info.free_spaces&(1<<i));
 }

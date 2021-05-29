@@ -121,15 +121,15 @@ void            print_pages_from_info_arrs(void);
 int             get_next_free_space(uint16 free_spaces);
 int             get_index_in_page_info_array(uint64 va,  struct page_info *arr);
 //Task3 paging policy
-int                 compare_all_pages(int (*compare)(struct page_info *pg1, struct page_info *pg2));
-int                 countOnes(uint n);
+int                 compare_all_pages(long (*compare)(struct page_info *pg1, struct page_info *pg2));
+long                countOnes(long n);
 int                 SCFIFO_compare(struct page_info *pg1, struct page_info *pg2);
-int                 LAPA_compare(struct page_info *pg1, struct page_info *pg2);
-int                 NFUA_compare(struct page_info *pg1, struct page_info *pg2);
+long                 LAPA_compare(struct page_info *pg1, struct page_info *pg2);
+long                 NFUA_compare(struct page_info *pg1, struct page_info *pg2);
 int                 get_next_page_to_swap_out();
 void                update_pages_info();
 void                update_NFUA_LAPA_counter(struct page_info *pg);
-int                 is_accessed(struct page_info *pg, int to_reset);
+long                is_accessed(struct page_info *pg, int to_reset);
 void                reset_aging_counter(struct page_info *pg);
 
 // swtch.S

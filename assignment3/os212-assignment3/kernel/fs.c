@@ -700,8 +700,6 @@ char* itoa(int i, char b[]){
 int
 removeSwapFile(struct proc* p)
 {
-    printf("in RemoveSwapFile\n"); //TODO: delete
-
   //path of proccess
   char path[DIGITS];
   memmove(path,"/.swap", 6);

@@ -46,11 +46,12 @@ acquire(struct spinlock *lk)
 void
 release(struct spinlock *lk)
 {
+
   if(!holding(lk))
     panic("release");
 
   lk->cpu = 0;
-
+  
   // Tell the C compiler and the CPU to not move loads or stores
   // past this point, to ensure that all the stores in the critical
   // section are visible to other CPUs before the lock is released,
@@ -58,6 +59,7 @@ release(struct spinlock *lk)
   // the lock is released.
   // On RISC-V, this emits a fence instruction.
   __sync_synchronize();
+
 
   // Release the lock, equivalent to lk->locked = 0.
   // This code doesn't use a C assignment, since the C standard
@@ -67,6 +69,7 @@ release(struct spinlock *lk)
   //   s1 = &lk->locked
   //   amoswap.w zero, zero, (s1)
   __sync_lock_release(&lk->locked);
+
 
   pop_off();
 }

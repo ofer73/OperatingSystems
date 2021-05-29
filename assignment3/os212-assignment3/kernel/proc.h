@@ -101,7 +101,7 @@ enum procstate
 struct page_info
 {
   uint64 va; // Virtual address of page (used as identifier)
-  uint32 aging_counter;
+  long aging_counter;
   uint time_inserted;
 };
 
