@@ -761,7 +761,6 @@ removeSwapFile(struct proc* p)
     iunlockput(dp);
     end_op();
     return -1;
-    printf("end RemoveSwapFile\n"); //TODO: delete
 
 }
 

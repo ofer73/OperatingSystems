@@ -233,28 +233,26 @@ fork_test(){
     
 }
 
-void shiftcheck(){
-    long x = 0xFFFFFFFF;
-    long y = 0x80000000;
-    printf("-----------------------------before x = %p\n",x);
-    printf("-----------------------------before y = %p\n",y);
-    x = x>>1;
-    printf("-----------------------------after1 x = %p\n",x);
-    x = x>>1 | y;
-    printf("-----------------------------after2 x = %p\n",x);
-    x = x>>1 | y;
-    printf("-----------------------------after3 x = %p\n",x);
-    x = x>>1 | y;
-    printf("-----------------------------after4 x = %p\n",x);
+int malloc_and_free(){
+    printf("-----------------------------malloc--------\n");
+
+    void* a = sbrk(PGSIZE);
+    void* b = malloc(PGSIZE);
+
+    printf("-----------------------------free--------\n");
+    free(a);
+    return 0;
 }
+
 int
 main(int argc, char *argv[])
 {
     // printf("-----------------------------sbark_and_fork-----------------------------\n");
     // sbark_and_fork();
-    printf("-----------------------------fork_test-----------------------------\n");
-    fork_test();
-    // shiftcheck();
+    // printf("-----------------------------fork_test-----------------------------\n");
+    // fork_test();
+    printf("-----------------------------malloc_and_free-----------------------------\n");
+    malloc_and_free();
     exit(0);
     return 0;
 }

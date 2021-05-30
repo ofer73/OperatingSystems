@@ -11,6 +11,8 @@ static int loadseg(pde_t *pgdir, uint64 addr, struct inode *ip, uint offset, uin
 
 int exec(char *path, char **argv)
 {
+
+
   char *s, *last;
   int i, off;
   uint64 argc, sz = 0, sp, ustack[MAXARG + 1], stackbase;
@@ -19,6 +21,8 @@ int exec(char *path, char **argv)
   struct proghdr ph;
   pagetable_t pagetable = 0, oldpagetable;
   struct proc *p = myproc();
+
+
 
   begin_op();
 
@@ -37,6 +41,7 @@ int exec(char *path, char **argv)
 
   if ((pagetable = proc_pagetable(p)) == 0)
     goto bad;
+
 
   // Load program into memory.
   for (i = 0, off = elf.phoff; i < elf.phnum; i++, off += sizeof(ph))
@@ -58,6 +63,7 @@ int exec(char *path, char **argv)
     if (loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0)
       goto bad;
   }
+
   iunlockput(ip);
   end_op();
   ip = 0;
@@ -69,10 +75,14 @@ int exec(char *path, char **argv)
   // Use the second as the user stack.
   sz = PGROUNDUP(sz);
   uint64 sz1;
-  if ((sz1 = uvmalloc(pagetable, sz, sz + 2 * PGSIZE)) == 0)
+  sz1 = uvmalloc(pagetable, sz, sz + 2 * PGSIZE);
+
+  if ((sz1) == 0)
     goto bad;
+
   sz = sz1;
   uvmclear(pagetable, sz - 2 * PGSIZE);
+
   sp = sz;
   stackbase = sp - PGSIZE;
 
@@ -129,6 +139,7 @@ int exec(char *path, char **argv)
   // removeSwapFile(p);
   // p->swapFile = 0;
   // createSwapFile(p);
+
 
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 

@@ -107,6 +107,7 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
 uint64
 walkaddr(pagetable_t pagetable, uint64 va, int to_page_out)
 {
+  
   // check if we have space in phsical addres or in case the
 
   pte_t *pte;
@@ -295,6 +296,7 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
         }
         uint64 rva = p->pages_physc_info.pages[i].va;
         page_out(rva);
+
       }
     }
 #endif
