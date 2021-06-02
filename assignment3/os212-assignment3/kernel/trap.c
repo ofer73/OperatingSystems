@@ -76,18 +76,29 @@ void usertrap(void)
     // Page fault
     uint64 fault_va = r_stval();
     uint64 fault_rva = PGROUNDDOWN(fault_va);
-    pte_t *pte = walk(p->pagetable, fault_rva, 0);
+
+    #ifdef NONE
+    // Lazy allocation
+    if ( fault_va >= p->sz || lazy_allocate(fault_va) < 0){
+      p->killed = 1 ;
+
+    }
+    goto end;
+    #endif
+
+    printf("in page fault,va=%p,rva = %p\n",fault_va,fault_rva);
+    pte_t *pte = walk(p->pagetable, fault_va, 0);
+
+
     
     if (!pte || p->pid <= 2)
     {
-      printf("seg fault with pid=%d", p->pid);
-      panic("usertrap: segmentation fault oh nooooo"); // TODO check if need to kill just the current procces
+      printf("segfault with SELCTION!=NONE\n");
+      // SELECTION != NONE but can't page in, then this is a segmentation fault  
+      p->killed = 1 ;
+      goto end;
     }
-
-    #ifdef NONE
-    printf("seg fault with pid=%d", p->pid);
-    panic("usertrap: segmentation fault on NONE"); // TODO check if need to kill just the current procces
-    #endif
+  
     printf("debug: PAGE FAULT\n");
     if ((*pte & PTE_PG) && !(*pte & PTE_V))
     {
@@ -96,17 +107,19 @@ void usertrap(void)
       {
         // Need to page out first
         int page_to_swap_out_index = get_next_page_to_swap_out();
-        if (page_to_swap_out_index < 0 || page_to_swap_out_index > MAX_PSYC_PAGES)
+        if (page_to_swap_out_index < 0 || page_to_swap_out_index > MAX_PSYC_PAGES){
           panic("usertrap: did not find page to swap out");
+      }
         uint64 va = p->pages_physc_info.pages[page_to_swap_out_index].va;
 
-        uint64 pa = page_out(va);
+       page_out(va);
       }
-      pte_t *pte_new = page_in(fault_rva, pte);
+     page_in(fault_rva, pte);
     }
     else if (*pte & PTE_V)
     {
-      panic("usertrap: PTE_V should not be valid during page_fault"); //TODO: check if needed/true
+      p->killed = 1;  // PTE should be invalid in case of page paged out
+      goto end;
     }
   }
 
@@ -120,6 +133,8 @@ void usertrap(void)
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
   }
+
+  end:
 
   if (p->killed)
     exit(-1);

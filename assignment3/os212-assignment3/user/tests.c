@@ -60,6 +60,7 @@ fork_SCFIFO(){
 
     }
     wait(0);
+    return 0;
 }
 
 int 
@@ -133,6 +134,7 @@ LAPA_when_all_equal(){
 
     }
     wait(0);
+    return 0;
 }
 
 int
@@ -167,6 +169,7 @@ LAPA_paging(){
 
     }
     wait(0);
+    return 0;
 }
 
 int
@@ -209,11 +212,12 @@ LAPA_test_fork_copy(){
         printf("page 8 contains : %d",*pages[8]);
         
     printf("---------finished LAPA_test_fork_copy test!!!!----------\n");
+
+    return 0;
 }
 
 int 
 fork_test(){
-    char wait[3];   // used to ask for input and delay between tests
     #ifdef SCFIFO
     return fork_SCFIFO();
     #endif
@@ -223,6 +227,7 @@ fork_test(){
     #endif
 
     #ifdef LAPA
+    char wait[3];   // used to ask for input and delay between tests
     LAPA_paging();
     gets(wait,3);
     LAPA_when_all_equal();
@@ -241,6 +246,9 @@ int malloc_and_free(){
 
     printf("-----------------------------free--------\n");
     free(a);
+    free(b);
+    printf("-----------------------------PASS--------\n");
+
     return 0;
 }
 
@@ -249,10 +257,10 @@ main(int argc, char *argv[])
 {
     // printf("-----------------------------sbark_and_fork-----------------------------\n");
     // sbark_and_fork();
-    // printf("-----------------------------fork_test-----------------------------\n");
-    // fork_test();
-    printf("-----------------------------malloc_and_free-----------------------------\n");
-    malloc_and_free();
+    printf("-----------------------------fork_test-----------------------------\n");
+    fork_test();
+    // printf("-----------------------------malloc_and_free-----------------------------\n");
+    // malloc_and_free();
     exit(0);
     return 0;
 }

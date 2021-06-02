@@ -131,6 +131,8 @@ void                update_pages_info();
 void                update_NFUA_LAPA_counter(struct page_info *pg);
 long                is_accessed(struct page_info *pg, int to_reset);
 void                reset_aging_counter(struct page_info *pg);
+// BONUS
+uint64                lazy_allocate(uint64 va);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

@@ -82,6 +82,8 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
 {
   if (va >= MAXVA)
     panic("walk");
+  
+   
 
   for (int level = 2; level > 0; level--)
   {
@@ -112,15 +114,28 @@ walkaddr(pagetable_t pagetable, uint64 va, int to_page_out)
 
   pte_t *pte;
   uint64 pa;
+  struct proc *p = myproc();
 
   if (va >= MAXVA)
     return 0;
 
   pte = walk(pagetable, va, 0);
-  if (pte == 0)
-    return 0;
-  if ((*pte & PTE_V) == 0)
-    return 0;
+  if (pte == 0 || !(*pte & PTE_V)){
+    #ifndef NONE
+      return 0;
+    #endif
+    //---------------------------------------BONUS
+      if (va < PGROUNDDOWN(p->trapframe->sp) ||
+        va > myproc()->sz || (pa = lazy_allocate(va)) < 0)
+      {
+        // need to kill procces
+        p->killed = 1;
+        return 0;
+      }
+    return pa;
+    //---------------------------------------BONUS
+  }
+
   if ((*pte & PTE_U) == 0)
     return 0;
   pa = PTE2PA(*pte);
@@ -180,30 +195,41 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 
   uint64 a;
   pte_t *pte;
-  struct proc *p = myproc();
+  
 
   if ((va % PGSIZE) != 0)
     panic("uvmunmap: not aligned");
 
   for (a = va; a < va + npages * PGSIZE; a += PGSIZE)
   {
-    if ((pte = walk(pagetable, a, 0)) == 0)
+    if ((pte = walk(pagetable, a, 0)) == 0){
+      //------------------------------------------------BONUS
+      #ifdef NONE
+        continue;
+      #endif
+      //------------------------------------------------BONUS
       panic("uvmunmap: walk");
+    }
     if ((*pte & PTE_V) == 0){
       #ifndef NONE
-      if((*pte & PTE_PG)  && pagetable == p->pagetable){  // page is swapped out
-        if(remove_page_from_swap_file(a)<0)
-          panic("uvmunmap: cant find file bos");
-        // *pte = 0; //TODO: check
-        p->total_pages_num--;
+        struct proc *p = myproc();
+        if((*pte & PTE_PG)  && pagetable == p->pagetable){  // page is swapped out
+          if(remove_page_from_swap_file(a)<0)
+            panic("uvmunmap: cant find file bos");
+          // *pte = 0; //TODO: check
+          p->total_pages_num--;
+          continue;
+        }
+        else if(!(*pte & PTE_PG)){
+          panic("uvmunmap: not mapped");
+        }
         continue;
-      }
-      else if(!(*pte & PTE_PG)){
-        panic("uvmunmap: not mapped");
-      }
-
-      continue;
       #endif
+      //------------------------------------------------BONUS
+      // SELECTION == NONE -> the memory is not allocated (due to lazy allocation)
+      *pte = 0;
+      continue;
+      //------------------------------------------------BONUS
       panic("uvmunmap: not mapped");
     }
 
@@ -215,7 +241,7 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
       uint64 pa = PTE2PA(*pte);
       kfree((void *)pa);
 #ifndef NONE
-      if (myproc()->pid > 2 && pagetable == p->pagetable)
+      if (myproc()->pid > 2 && pagetable == myproc()->pagetable)
       {
         // Update our physical memory data structure
         if (remove_page_from_physical_memory(a) >= 0)
@@ -271,7 +297,6 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 {
 
   char *mem;
-  struct proc *p = myproc();
   uint64 a;
 
   if (newsz < oldsz)
@@ -281,6 +306,7 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
   for (a = oldsz; a < newsz; a += PGSIZE)
   {
 #ifndef NONE
+    struct proc *p = myproc();
     if (p->pid > 2)
     {
       if (p->total_pages_num >= MAX_TOTAL_PAGES)
@@ -315,12 +341,13 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
       return 0;
     }
 #ifndef NONE
-    if (p->pid > 2)
+    struct proc *p2 = myproc();
+    if (p2->pid > 2)
     {
       // update physc mem struct
       insert_page_to_physical_memory(a);
-      p->total_pages_num++;
-      p->physical_pages_num++;
+      p2->total_pages_num++;
+      p2->physical_pages_num++;
     }
 #endif
   }
@@ -389,17 +416,24 @@ int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 {
 
   pte_t *pte;
-  pte_t *np_pte;
   uint64 pa, i;
   uint flags;
   char *mem;
 
   for (i = 0; i < sz; i += PGSIZE)
   {
-    if ((pte = walk(old, i, 0)) == 0)
+    if ((pte = walk(old, i, 0)) == 0){
+      #ifdef NONE
+        continue; // BONUS : pte not allocated due to lazy allocation
+      #endif
       panic("uvmcopy: pte should exist");
+    }
     if ((*pte & PTE_V) == 0){
+    #ifdef NONE
+      continue; // BONUS : pte not allocated due to lazy allocation
+    #endif
     #ifndef NONE
+      pte_t *np_pte;
       if(!(*pte & PTE_PG))
         panic("uvmcopy: page not present");
          
